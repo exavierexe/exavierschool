@@ -296,11 +296,20 @@ export const querySwissEph = async (params: {
     const formattedDay = day.toString().padStart(2, '0')
     const formattedMonth = month.toString().padStart(2, '0')
     const formattedYear = year.toString().padStart(4, '0')
-    const dateObj = new Date(`${formattedYear}`+"-"+`${formattedMonth}`+"-"+`${formattedDay}`+"T"+`${hour}`+":"+`${minute}`+":00"+`${tzSignA}`+`${formattedHours}`+":"+`${formattedMinutes}`);
+    const formattedHour = hour.toString().padStart(2, '0')
+    const formattedMinute = minute.toString().padStart(2, '0')
     
+    console.log("formatted date")
+    console.log(formattedYear)
+    console.log(formattedMonth)
+    console.log(formattedDay)
+    
+    const dateObj = new Date(`${formattedYear}-${formattedMonth}-${formattedDay}T${formattedHour}:${formattedMinute}:00${tzSignA}${formattedHours}:${formattedMinutes}`);
+    const dateObj2 = new Date(`1995-09-08T19:05:00-4:00`)
     
     console.log(dateObj)
-    
+    console.log(dateObj2)
+    console.log(`${formattedYear}`+"-"+`${formattedMonth}`+"-"+`${formattedDay}`+"T"+`${hour}`+":"+`${minute}`+":00"+`${tzSignA}`+`${formattedHours}`+":"+`${formattedMinutes}`)
     console.log(`${year}`+"-"+`${month}`+"-"+`${day}`+"T"+`${hour}`+":"+`${minute}`+":00"+`${tzSignA}`+`${formattedHours}`+":"+`${formattedMinutes}`)
     
     console.log(hour)
@@ -408,36 +417,6 @@ export const querySwissEph = async (params: {
       }
     }
     
-    // Calculate mean nodes (not provided by ephemeris.js directly)
-    try {
-      // Approximation based on standard formulas
-      const T = (julDay - 2451545.0) / 36525; // Julian centuries since J2000.0
-      const meanNodeLongitude = 125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000;
-      // Normalize to 0-360 range
-      const normalizedNodeLong = ((meanNodeLongitude % 360) + 360) % 360;
-      
-      // Mean Node
-      const meanNodeSignIndex = Math.floor(normalizedNodeLong / 30) % 12;
-      const meanNodeDegree = normalizedNodeLong % 30;
-      const meanNodeMinutes = Math.floor((meanNodeDegree - Math.floor(meanNodeDegree)) * 60);
-      const meanNodeSeconds = Math.floor(((meanNodeDegree - Math.floor(meanNodeDegree)) * 60 - meanNodeMinutes) * 60);
-      
-      planetData['Mean Node'] = {
-        longitude: normalizedNodeLong,
-        sign: zodiacSigns[meanNodeSignIndex],
-        degree: Math.floor(meanNodeDegree),
-        minutes: meanNodeMinutes,
-        seconds: meanNodeSeconds,
-        retrograde: false,
-        formattedPosition: `${Math.floor(meanNodeDegree)}° ${zodiacSigns[meanNodeSignIndex]} ${meanNodeMinutes}' ${meanNodeSeconds.toFixed(1)}"`
-      };
-      
-      // For this implementation, True Node is same as Mean Node
-      planetData['True Node'] = planetData['Mean Node'];
-      
-    } catch (err) {
-      console.error('Error calculating nodes:', err);
-    }
     
     // Calculate house cusps if coordinates are available
     let houseData: any = {};
@@ -589,7 +568,7 @@ ${formattedOutput}`;
  * Converts raw ephemeris.js result to chart data format
  * This function takes the raw output from ephemeris.js and converts it to our ChartData format
  */
-function convertEphemerisResultToChartData(result: any, geocodedLocation: any) {
+function convertEphemerisResultToChartData(result: any, geocodedLocation: any, asc: any) {
   // The zodiac signs array
   const zodiacSigns = [
     'Aries', 'Taurus', 'Gemini', 'Cancer',
@@ -601,6 +580,7 @@ function convertEphemerisResultToChartData(result: any, geocodedLocation: any) {
   const planets: Record<string, any> = {};
   const houses: Record<string, any> = {};
   let ascendant = { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 };
+  let ascendant2 = asc
 
   // Define planets to extract
   const planetList = [
@@ -639,93 +619,7 @@ function convertEphemerisResultToChartData(result: any, geocodedLocation: any) {
   }
 
   // Calculate mean nodes (not provided by ephemeris.js directly)
-  try {
-    // Approximation based on standard formulas
-    const julDay = result.date.julianTerrestrial || 0;
-    const T = (julDay - 2451545.0) / 36525; // Julian centuries since J2000.0
-    const meanNodeLongitude = 125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000;
-    // Normalize to 0-360 range
-    const normalizedNodeLong = ((meanNodeLongitude % 360) + 360) % 360;
-    
-    // Mean Node
-    const meanNodeSignIndex = Math.floor(normalizedNodeLong / 30) % 12;
-    const meanNodeDegree = normalizedNodeLong % 30;
-    
-    planets['meanNode'] = {
-      name: zodiacSigns[meanNodeSignIndex],
-      symbol: '☊',
-      longitude: normalizedNodeLong,
-      degree: meanNodeDegree
-    };
-    
-    planets['trueNode'] = planets['meanNode'];
-    
-    // Calculate South Node (always opposite to North Node)
-    const southNodeLong = (normalizedNodeLong + 180) % 360;
-    const southNodeSignIndex = Math.floor(southNodeLong / 30) % 12;
-    const southNodeDegree = southNodeLong % 30;
-    
-    planets['southNode'] = {
-      name: zodiacSigns[southNodeSignIndex],
-      symbol: '☋',
-      longitude: southNodeLong,
-      degree: southNodeDegree
-    };
-  } catch (err) {
-    console.error('Error calculating nodes:', err);
-  }
-
-  // Calculate house cusps if coordinates are available
-  if (geocodedLocation.latitude !== 0 || geocodedLocation.longitude !== 0) {
-    try {
-
-
-             /// get the real ascendant... might have to fix something up there
-    const ascendantobj = chartascendant(formattedYear, formattedMonth, formattedDay, hour, minute, geocodedLocation.latitude, geocodedLocation.longitude)
-    const ascendantdegree = ascendantobj.ascdegree
-    const ascendantsign = ascendantobj.ascsign
-    const ascendantdecimal = ascendantobj.decimaldegree
-        
-        
-        // Ascendant
-        const ascLongitude = ascendantdecimal;
-        const ascSignIndex = Math.floor(ascendantdecimal / 30) % 12;
-       
-      
-      // Ascendant
-     
-      
-      
-      ascendant = {
-        name: zodiacSigns[ascSignIndex],
-        symbol: getZodiacSymbol(ascSignIndex),
-        longitude: ascendantdecimal,
-        degree: ascendantdegree
-      };
-      
-      
-      
-      
-      
-      // Calculate house cusps using equal house system
-      // Each house is 30 degrees, starting from the Ascendant
-      for (let i = 1; i <= 12; i++) {
-        const houseCusp = (ascLongitude + (i - 1) * 30) % 360;
-        const houseSignIndex = Math.floor(houseCusp / 30) % 12;
-        const houseDegree = houseCusp % 30;
-        
-        houses[`house${i}`] = {
-          cusp: houseCusp,
-          name: zodiacSigns[houseSignIndex],
-          symbol: getZodiacSymbol(houseSignIndex),
-          degree: houseDegree
-        };
-      }
-    } catch (err) {
-      console.error('Error calculating houses:', err);
-    }
-  }
-
+  
   // Return the chart data
   return {
     planets,
@@ -743,162 +637,7 @@ function getZodiacSymbol(signIndex: number): string {
 }
 
 // Calculate a birth chart using JavaScript ephemeris implementation
-export const calculateBirthChartWithSwissEph = async (params: {
-  birthDate: string;
-  birthTime: string;
-  birthPlace: string;
-  formattedDay?: string;
-  formattedMonth?: string;
-  formattedYear?: string;
-  hour?: number;
-  minute?: number;
-}) => {
-  try {
-    const { birthDate, birthTime, birthPlace, formattedDay, formattedMonth, formattedYear, hour: paramsHour, minute: paramsMinute } = params;
-    
-    // Validate birth place
-    if (!birthPlace || birthPlace.trim() === '') {
-      return {
-        error: 'Please enter a birth place (city name).'
-      };
-    }
-    
-    // First, geocode the birth place to get latitude and longitude
-    const geocodedLocation = await geocodeLocation(birthPlace);
-    if (geocodedLocation.latitude === 0 && geocodedLocation.longitude === 0) {
-      return {
-        error: `Could not geocode location "${birthPlace}". Please try a different city name.`
-      };
-    }
-    
-    // Check if timezone information is available
-    if (!geocodedLocation.timeZone) {
-      return {
-        error: `Could not determine the timezone for "${birthPlace}". Please try a different city name.`
-      };
-    }
-    
-    // Parse the date and time with validation
-    let year, month, day, hour, minute;
-    
-    // Use provided formatted values if available, otherwise parse from birthDate/birthTime
-    if (formattedYear && formattedMonth && formattedDay && paramsHour !== undefined && paramsMinute !== undefined) {
-      year = parseInt(formattedYear);
-      month = parseInt(formattedMonth);
-      day = parseInt(formattedDay);
-      hour = paramsHour;
-      minute = paramsMinute;
-    } else {
-      // Parse from birthDate/birthTime as fallback
-      [year, month, day] = birthDate.split('-').map(Number);
-      [hour, minute] = birthTime.split(':').map(Number);
-    }
-    
-    // Validate time values
-    if (isNaN(hour) || hour < 0 || hour > 23 || isNaN(minute) || minute < 0 || minute > 59) {
-      return {
-        error: 'Invalid time value. Hours must be 0-23 and minutes must be 0-59.'
-      };
-    }
-    
-    console.log(`Input (local birth time): ${year}-${month}-${day} ${hour}:${minute}`);
-    console.log(`Location: ${birthPlace} (${geocodedLocation.latitude}, ${geocodedLocation.longitude})`);
-    console.log(`Timezone: ${geocodedLocation.timeZone.zoneName}, offset: ${geocodedLocation.timeZone.utcOffset} seconds`);
-    
-    // Format the offset for an ISO string
-    const totalOffsetMinutes = geocodedLocation.timeZone.utcOffset / 60;
-    const offsetHours = Math.floor(Math.abs(totalOffsetMinutes) / 60) * (totalOffsetMinutes >= 0 ? 1 : -1);
-    const offsetMinutes = Math.abs(totalOffsetMinutes) % 60;
-    const offsetSign = totalOffsetMinutes >= 0 ? '+' : '-';
-    const offsetString = `${offsetSign}${String(Math.abs(offsetHours)).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
-    
-    // Create an ISO date string with the timezone information
-    const formattedYearStr = String(year).padStart(4, '0');
-    const formattedMonthStr = String(month).padStart(2, '0');
-    const formattedDayStr = String(day).padStart(2, '0');
-    const formattedHourStr = String(hour).padStart(2, '0');
-    const formattedMinuteStr = String(minute).padStart(2, '0');
-    
-    const isoDateString = `${formattedYearStr}-${formattedMonthStr}-${formattedDayStr}T${formattedHourStr}:${formattedMinuteStr}:00.000${offsetString}`;
-    
-    // Create a Date object from this ISO string - this will contain the proper timezone information
-    let birthDateObj = new Date(isoDateString);
-    
-    // We'll also store the timezone offset information separately to pass to the ephemeris calculation
-    // This ensures the timezone information is properly associated with the birth location
-    const timeZoneOffsetSeconds = geocodedLocation.timeZone.utcOffset;
-    
-    console.log(`Birth time with timezone offset (${offsetString}): ${isoDateString}`);
-    console.log(`Timezone offset in seconds: ${timeZoneOffsetSeconds}`);
-    console.log(`Parsed birth date object: ${birthDateObj.toString()}`);
-    console.log(`UTC representation: ${birthDateObj.toUTCString()}`);
-    
-    // Use the dateObj from line 298 in querySwissEph
-    // Check if we have a matching date format
-    if (formattedDay && formattedMonth && formattedYear && 
-        day.toString().padStart(2, '0') === formattedDay &&
-        month.toString().padStart(2, '0') === formattedMonth &&
-        year.toString().padStart(4, '0') === formattedYear &&
-        paramsHour === hour && paramsMinute === minute) {
-      // Create the date object just like in line 298 of querySwissEph
-      const dateObj = new Date(`${formattedYear}-${formattedMonth}-${formattedDay}T${hour}:${minute}:00${offsetSign}${String(Math.abs(offsetHours)).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`);
-      console.log("Using dateObj format from line 298:", dateObj.toString());
-      birthDateObj = dateObj; // Use this dateObj instead
-    }
-    
-    // Import the ephemeris.js library for server-side calculations
-    const ephemerisJs = require('./lib/server-ephemeris');
-    
-    // Create a fresh dateObj using EXACTLY the same code as line 298
-    // This ensures we're using the exact same dateObj format and construction
-    const dateObj = new Date(`${formattedYear}-${formattedMonth}-${formattedDay}T${hour}:${minute}:00${offsetSign}${String(Math.abs(offsetHours)).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`);
-    
-    console.log("Using a dateObj with EXACTLY the same format as line 298:", dateObj.toString());
-    
-    // Calculate the positions using ephemeris.js with this date object
-    // The dateObj is passed directly to ephemerisJs without any manipulation
-    const result = ephemerisJs.getAllPlanets(
-      dateObj,
-      geocodedLocation.longitude,
-      geocodedLocation.latitude,
-      0, // height in meters
-      { 
-        timeZoneOffsetSeconds // Pass the timezone offset as an option
-      }
-    );
-   
-    // Convert the raw ephemeris result to our chart data format
-    const chartData = convertEphemerisResultToChartData(result, geocodedLocation);
-    
-    // Format the data for return
-    const formattedChartData = {
-      ...chartData,
-      birthLocationFormatted: geocodedLocation.formattedAddress,
-      calculationMethod: 'JavaScript Ephemeris',
-      timeZone: geocodedLocation.timeZone
-    };
-    
-    console.log('Birth chart calculated successfully');
-    
-    // Log the chart data for debugging
-    console.log('Calculated birth chart data:', {
-      ascendant: formattedChartData.ascendant,
-      planets: Object.keys(formattedChartData.planets || {}),
-      houses: Object.keys(formattedChartData.houses || {})
-    });
 
-    // Return the data to the client
-    return {
-      data: formattedChartData
-    };
-    
-  } catch (error) {
-    console.error('Error calculating birth chart with Swiss Ephemeris:', error);
-    return {
-      error: 'Failed to calculate birth chart. Please try again.'
-    };
-  }
-};
 
 // Function to parse the output from Swiss Ephemeris
 /**

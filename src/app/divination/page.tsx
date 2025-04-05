@@ -142,7 +142,7 @@ export default function Divination() {
         </h1>
         <p className="text-lg max-w-2xl mx-auto text-gray-300">
           Explore insights and guidance through the ancient art of tarot. 
-          Select a spread, ask your question, and interpret the cards' wisdom.
+          Select a spread, ask your question, and interpret the cards&apos; wisdom.
         </p>
       </header>
 
@@ -248,7 +248,7 @@ export default function Divination() {
                 </div>
               ) : savedReadings.length === 0 ? (
                 <div className="text-center py-8 bg-gray-900 rounded-lg border border-gray-800">
-                  <p className="mb-2">You don't have any saved readings yet.</p>
+                  <p className="mb-2">You don&apos;t have any saved readings yet.</p>
                   <p className="text-sm text-gray-400">Use the tarot card reader above to create and save readings.</p>
                 </div>
               ) : (

@@ -196,10 +196,10 @@ function loadTimeZoneData(): Map<string, any> {
         });
         
         // Log for debugging
-        if (!processedZones.has(zoneName)) {
-          processedZones.add(zoneName);
-          console.log(`Using timezone rule for ${zoneName}: ${currentEntry.zoneType}, offset ${currentEntry.utcOffset} seconds, DST: ${currentEntry.isDst ? 'Yes' : 'No'}`);
-        }
+      //  if (!processedZones.has(zoneName)) {
+       //   processedZones.add(zoneName);
+      //    console.log(`Using timezone rule for ${zoneName}: ${currentEntry.zoneType}, offset ${currentEntry.utcOffset} seconds, DST: ${currentEntry.isDst ? 'Yes' : 'No'}`);
+    //    }
       }
     }
     
@@ -265,16 +265,16 @@ function loadTimeZoneData(): Map<string, any> {
     console.log(`Loaded ${timeZonesMap.size} time zones from TimeZoneDB (including aliases)`);
     
     // Debug output - show key sample zones
-    for (const country of ['US', 'GB', 'JP', 'AU', 'NZ']) {
-      console.log(`Sample timezones for ${country}:`);
-      let found = 0;
-      for (const [name, data] of timeZonesMap.entries()) {
-        if (data.countryCode === country && found < 2) {
-          found++;
-          console.log(`  ${name}: ${data.countryCode}, ${data.zoneType}, offset: ${data.utcOffset} seconds, DST: ${data.isDst ? 'Yes' : 'No'}`);
-        }
-      }
-    }
+ //   for (const country of ['US', 'GB', 'JP', 'AU', 'NZ']) {
+   //   console.log(`Sample timezones for ${country}:`);
+  //    let found = 0;
+  //    for (const [name, data] of timeZonesMap.entries()) {
+ //       if (data.countryCode === country && found < 2) {
+ //         found++;
+ //         console.log(`  ${name}: ${data.countryCode}, ${data.zoneType}, offset: ${data.utcOffset} seconds, DST: ${data.isDst ? 'Yes' : 'No'}`);
+   //     }
+  //    }
+  //  }
     
     timeZonesCache = timeZonesMap;
     return timeZonesCache;
