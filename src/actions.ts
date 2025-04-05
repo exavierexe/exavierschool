@@ -568,65 +568,6 @@ ${formattedOutput}`;
  * Converts raw ephemeris.js result to chart data format
  * This function takes the raw output from ephemeris.js and converts it to our ChartData format
  */
-function convertEphemerisResultToChartData(result: any, geocodedLocation: any, asc: any) {
-  // The zodiac signs array
-  const zodiacSigns = [
-    'Aries', 'Taurus', 'Gemini', 'Cancer',
-    'Leo', 'Virgo', 'Libra', 'Scorpio',
-    'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
-  ];
-
-  // Initialize the chart data structure
-  const planets: Record<string, any> = {};
-  const houses: Record<string, any> = {};
-  let ascendant = { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 };
-  let ascendant2 = asc
-
-  // Define planets to extract
-  const planetList = [
-    { id: 'sun', name: 'Sun' },
-    { id: 'moon', name: 'Moon' },
-    { id: 'mercury', name: 'Mercury' },
-    { id: 'venus', name: 'Venus' },
-    { id: 'mars', name: 'Mars' },
-    { id: 'jupiter', name: 'Jupiter' },
-    { id: 'saturn', name: 'Saturn' },
-    { id: 'uranus', name: 'Uranus' },
-    { id: 'neptune', name: 'Neptune' },
-    { id: 'pluto', name: 'Pluto' },
-    { id: 'chiron', name: 'Chiron' }
-  ];
-
-  // Extract planet data
-  for (const planet of planetList) {
-    if (result.observed[planet.id]) {
-      const planetData = result.observed[planet.id];
-      
-      // Get longitude from the result
-      const longitude = planetData.apparentLongitudeDd;
-      const signIndex = Math.floor(longitude / 30) % 12;
-      const degree = longitude % 30;
-      
-      const sign = zodiacSigns[signIndex];
-      
-      planets[planet.id] = {
-        name: sign,
-        symbol: getZodiacSymbol(signIndex),
-        longitude,
-        degree
-      };
-    }
-  }
-
-  // Calculate mean nodes (not provided by ephemeris.js directly)
-  
-  // Return the chart data
-  return {
-    planets,
-    houses,
-    ascendant
-  };
-}
 
 /**
  * Helper function to get zodiac symbol from sign index
@@ -637,7 +578,6 @@ function getZodiacSymbol(signIndex: number): string {
 }
 
 // Calculate a birth chart using JavaScript ephemeris implementation
-
 
 // Function to parse the output from Swiss Ephemeris
 /**
