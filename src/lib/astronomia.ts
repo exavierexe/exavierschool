@@ -30,9 +30,16 @@ export default function chartascendant(year, month, day, hour, minute, latitude,
   const ascsignobj = ascendant.Sign;
   const ascsign = ascsignobj.Label;
 
+  const bodies = horoscope.CelestialBodies;
+  const points = horoscope.CelestialPoints;
+  const midheaven = horoscope.Midheaven;
+
   return { 
     ascdegree,
     ascsign,
-    decimaldegree
+    decimaldegree,
+    bodies,
+    points,
+    midheaven
   };
 }

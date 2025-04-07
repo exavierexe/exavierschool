@@ -328,7 +328,7 @@ export const querySwissEph = async (params: {
     // Use our robust wrapper for ephemeris calculations in serverless environments
     // This will automatically handle fallbacks if the module isn't available
     // For server components/actions, we use the server-side implementation
-    const ephemerisJs = require('./lib/server-ephemeris');
+    // const ephemerisJs = require('./lib/server-ephemeris');
     console.log(hour)
     console.log(minute)
     
@@ -336,6 +336,9 @@ export const querySwissEph = async (params: {
     const ascendantdegree = ascendantobj.ascdegree
     const ascendantsign = ascendantobj.ascsign
     const ascendantdecimal = ascendantobj.decimaldegree
+    const bodies1 = ascendantobj.bodies
+    const points1 = ascendantobj.points
+    const midheaven1 = ascendantobj.midheaven
     // *** THIS IS THE DATEOBJ FROM LINE 298 THAT SHOULD BE USED FOR ALL CHART CALCULATIONS ***
     
     // Calculate the positions using ephemeris.js with dateObj from line 298
@@ -344,21 +347,20 @@ export const querySwissEph = async (params: {
     console.log(dateObj)
     console.log(ascendantdegree)
     console.log(ascendantdecimal)
-    const result = ephemerisJs.getAllPlanets(
-      dateObj, // This is THE dateObj from line 298, used directly
-      geocodedLocation.longitude,
-      geocodedLocation.latitude,
-      0 // height in meters
-      
-    );
+    console.log(bodies1)
+    console.log(points1)
+    console.log(midheaven1)
   
-    
-    
-    // Extract Julian Day from result
-    const julDay = result.date.julianTerrestrial || 0;
-    
-    // Calculate positions for the main planets
+    console.log(bodies1.sun.ChartPosition)
+
     const planetData: any = {};
+
+        // The zodiac signs array
+        const zodiacSigns = [
+          'Aries', 'Taurus', 'Gemini', 'Cancer',
+          'Leo', 'Virgo', 'Libra', 'Scorpio',
+          'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+        ];
     
     // Define planets to calculate
     const planets = [
@@ -371,51 +373,99 @@ export const querySwissEph = async (params: {
       { id: 'saturn', name: 'Saturn' },
       { id: 'uranus', name: 'Uranus' },
       { id: 'neptune', name: 'Neptune' },
-      { id: 'pluto', name: 'Pluto' },
-      { id: 'chiron', name: 'Chiron' }
+      { id: 'pluto', name: 'Pluto' }
     ];
-    
-    // The zodiac signs array
-    const zodiacSigns = [
-      'Aries', 'Taurus', 'Gemini', 'Cancer',
-      'Leo', 'Virgo', 'Libra', 'Scorpio',
-      'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+
+    // Extract planet data
+  for (const planet of planets) {
+    if (ascendantobj.bodies[planet.id]) {
+      const planetInfo = ascendantobj.bodies[planet.id];
+      
+      // Get longitude from the result
+      const longitude = planetInfo.ChartPosition.Ecliptic.DecimalDegrees;
+      
+      const signIndex = Math.floor(longitude / 30) % 12;
+      const degree = planetInfo.ChartPosition.Ecliptic.ArcDegreesFormatted30;
+      
+      const sign = zodiacSigns[signIndex];
+      
+      planetData[planet.id] = {
+        name: sign,
+        symbol: getZodiacSymbol(signIndex),
+        longitude,
+        degree
+      };
+    }
+  }
+
+  const pointData: any = {};
+
+    const points = [
+      { id: 'northnode', name: 'North Node' },
+      { id: 'southnode', name: 'South Node' },
+      { id: 'lilith', name: 'Lilith' }
+      
     ];
-    
-    // Extract the position of each planet
-    for (const planet of planets) {
-      try {
-        if (result.observed[planet.id]) {
-          const planetResult = result.observed[planet.id];
-          
-          // Get longitude from the result
-          const longitude = planetResult.apparentLongitudeDd;
-          const signIndex = Math.floor(longitude / 30) % 12;
-          const degree = longitude % 30;
-          
-          // Ephemeris.js doesn't provide speed data, so we don't know if it's retrograde
-          const retrograde = false;
-          
-          const sign = zodiacSigns[signIndex];
-          
-          // Format the position output similar to Swiss Ephemeris command line tool
-          const minutes = Math.floor((degree - Math.floor(degree)) * 60);
-          const seconds = Math.floor(((degree - Math.floor(degree)) * 60 - minutes) * 60);
-          
-          planetData[planet.name] = {
-            longitude,
-            sign,
-            degree: Math.floor(degree),
-            minutes,
-            seconds,
-            retrograde,
-            formattedPosition: `${Math.floor(degree)}° ${sign} ${minutes}' ${seconds.toFixed(1)}" ${retrograde ? 'R' : ''}`
-          };
-        }
-      } catch (err) {
-        console.error(`Error calculating ${planet.name} position:`, err);
+
+    for (const point of points) {
+      if (ascendantobj.points[point.id]) {
+        const pointInfo = ascendantobj.points[point.id];
+        
+        // Get longitude from the result
+        const longitude = pointInfo.ChartPosition.Ecliptic.DecimalDegrees;
+        const signIndex = Math.floor(longitude / 30) % 12;
+        const degree = pointInfo.ChartPosition.Ecliptic.ArcDegreesFormatted30;
+        
+        const sign = zodiacSigns[signIndex];
+        
+        pointData[point.id] = {
+          name: sign,
+          symbol: getZodiacSymbol(signIndex),
+          longitude,
+          degree
+        };
       }
     }
+    if (ascendantobj.midheaven) {
+      const longitude = ascendantobj.midheaven.ChartPosition.Ecliptic.DecimalDegrees;
+      const signIndex = Math.floor(longitude / 30) % 12;
+      const degree = ascendantobj.midheaven.ChartPosition.Ecliptic.ArcDegreesFormatted30;
+      const sign = zodiacSigns[signIndex];
+      pointData['midheaven'] = {
+        name: sign,
+        symbol: getZodiacSymbol(signIndex),
+        longitude,
+        degree
+      }
+
+    }
+
+     // Format the output to look similar to the original Swiss Ephemeris output
+     
+    let formattedOutput = '';
+     // Add planet positions
+    if (Object.keys(planetData).length > 0) {
+     formattedOutput += 'Planets:\n';
+     for (const [planet, data] of Object.entries(planetData)) {
+      console.log(data.name)
+      console.log(data.degree)
+      // Add type assertion to handle 'unknown' type
+     //  const typedData1 = data.name as { formattedPosition1: string };
+     //  const typedData2 = data.degree as { formattedPosition2: string };
+
+       formattedOutput += `${planet.padEnd(12)} ${data.name} ${data.degree}\n`;
+     }};
+
+     if (Object.keys(pointData).length > 0) {
+     formattedOutput += 'Points:\n';
+     for (const [point, data] of Object.entries(pointData)) {
+       // Add type assertion to handle 'unknown' type
+      // const typedData = data as { formattedPosition: string };
+      console.log(pointData.midheaven)
+       formattedOutput += `${point.padEnd(12)} ${data.name} ${data.degree}\n`;
+     }};
+     
+
     
     
     // Calculate house cusps if coordinates are available
@@ -473,101 +523,177 @@ export const querySwissEph = async (params: {
         console.error('Error calculating houses:', err);
       }
     }
-    
-    // Format the output to look similar to the original Swiss Ephemeris output
-    let formattedOutput = '';
-    
-    // Add planet positions
-    formattedOutput += 'Planets:\n';
-    for (const [name, data] of Object.entries(planetData)) {
-      // Add type assertion to handle 'unknown' type
-      const typedData = data as { formattedPosition: string };
-      formattedOutput += `${name.padEnd(12)} ${typedData.formattedPosition}\n`;
-    }
-    
-    // Add house cusps if available
-    if (Object.keys(houseData).length > 0) {
-      formattedOutput += '\nHouses:\n';
-      
-      // First add special points
-      if (houseData['Ascendant']) {
-        const ascData = houseData['Ascendant'] as { formattedPosition: string };
-        formattedOutput += `Ascendant    ${ascData.formattedPosition}\n`;
-      }
-      
-    
-      
-      // Then add house cusps
-      for (let i = 1; i <= 12; i++) {
-        const houseKey = `House ${i}`;
-        if (houseData[houseKey]) {
-          const houseData2 = houseData[houseKey] as { formattedPosition: string };
-          formattedOutput += `house ${i.toString().padStart(2)}     ${houseData2.formattedPosition}\n`;
-        }
-      }
-    }
-    
-    // Get UTC date and time components
-    let utcDateStr, utcTimeStr;
-    
-    // Check if universalDate is available, otherwise fall back to dateObj
-    if (result.date && result.date.universalDateString) {
-      // Parse from the string format '10.8.2015 17:7:52.983'
-      const dateParts = result.date.universalDateString.split(' ');
-      if (dateParts.length >= 2) {
-        utcDateStr = dateParts[0]; // e.g. '10.8.2015'
-        utcTimeStr = dateParts[1]; // e.g. '17:7:52.983'
-      }
-    } 
-    
-    // If we couldn't get the universal date string, use the dateObj
-    if (!utcDateStr || !utcTimeStr) {
-      const utcDay = dateObj.getUTCDate().toString().padStart(2, '0');
-      const utcMonth = (dateObj.getUTCMonth() + 1).toString().padStart(2, '0');
-      const utcYear = dateObj.getUTCFullYear();
-      const utcHour = dateObj.getUTCHours().toString().padStart(2, '0');
-      const utcMinute = dateObj.getUTCMinutes().toString().padStart(2, '0');
-      const utcSecond = dateObj.getUTCSeconds().toString().padStart(2, '0');
-      
-      utcDateStr = `${utcDay}.${utcMonth}.${utcYear}`;
-      utcTimeStr = `${utcHour}:${utcMinute}:${utcSecond}`;
-    }
-    
-    // Add location information to the output
-    const timezoneInfoText = geocodedLocation.timeZone ? 
-      `Time Zone: ${geocodedLocation.timeZone.zoneName} (${geocodedLocation.timeZone.countryName})` :
-      `Time Zone: ${timeZoneInfo.name}`;
-      
-    const locationInfo = `
-Date (Local): ${date}
-Time (Local): ${time}
-Date (UTC): ${utcDateStr}
-Time (UTC): ${utcTimeStr}
-Location: ${geocodedLocation.formattedAddress}
-${timezoneInfoText}
-Latitude: ${geocodedLocation.latitude.toFixed(4)}° ${geocodedLocation.latitude >= 0 ? 'N' : 'S'}
-Longitude: ${geocodedLocation.longitude.toFixed(4)}° ${geocodedLocation.longitude >= 0 ? 'E' : 'W'}
-Julian Day: ${julDay.toFixed(6)}
 
----- JAVASCRIPT EPHEMERIS OUTPUT ----
+
+     // Add house cusps if available
+     if (Object.keys(houseData).length > 0) {
+       formattedOutput += '\nHouses:\n';
+       
+       // First add special points
+       if (houseData['Ascendant']) {
+         const ascData = houseData['Ascendant'] as { formattedPosition: string };
+         formattedOutput += `Ascendant    ${ascData.formattedPosition}\n`;
+       }
+       
+     
+       
+       // Then add house cusps
+       for (let i = 1; i <= 12; i++) {
+         const houseKey = `House ${i}`;
+         if (houseData[houseKey]) {
+           const houseData2 = houseData[houseKey] as { formattedPosition: string };
+           formattedOutput += `house ${i.toString().padStart(2)}     ${houseData2.formattedPosition}\n`;
+         }
+       }
+     }
+     
+     // Get UTC date and time components
+     let utcDateStr, utcTimeStr;
+     
+     // Check if universalDate is available, otherwise fall back to dateObj
+   
+     
+     // If we couldn't get the universal date string, use the dateObj
+     if (!utcDateStr || !utcTimeStr) {
+       const utcDay = dateObj.getUTCDate().toString().padStart(2, '0');
+       const utcMonth = (dateObj.getUTCMonth() + 1).toString().padStart(2, '0');
+       const utcYear = dateObj.getUTCFullYear();
+       const utcHour = dateObj.getUTCHours().toString().padStart(2, '0');
+       const utcMinute = dateObj.getUTCMinutes().toString().padStart(2, '0');
+       const utcSecond = dateObj.getUTCSeconds().toString().padStart(2, '0');
+       
+       utcDateStr = `${utcDay}.${utcMonth}.${utcYear}`;
+       utcTimeStr = `${utcHour}:${utcMinute}:${utcSecond}`;
+     }
+     
+     // Add location information to the output
+     const timezoneInfoText = geocodedLocation.timeZone ? 
+       `Time Zone: ${geocodedLocation.timeZone.zoneName} (${geocodedLocation.timeZone.countryName})` :
+       `Time Zone: ${timeZoneInfo.name}`;
+       
+     const locationInfo = `
+ Date (Local): ${date}
+ Time (Local): ${time}
+ Date (UTC): ${utcDateStr}
+ Time (UTC): ${utcTimeStr}
+ Location: ${geocodedLocation.formattedAddress}
+ ${timezoneInfoText}
+ Latitude: ${geocodedLocation.latitude.toFixed(4)}° ${geocodedLocation.latitude >= 0 ? 'N' : 'S'}
+ Longitude: ${geocodedLocation.longitude.toFixed(4)}° ${geocodedLocation.longitude >= 0 ? 'E' : 'W'}
+ 
+ 
+ ---- EPHEMERIS OUTPUT ----
 ${formattedOutput}`;
+     
+     return { output: locationInfo };
+   } catch (error: any) {
+     console.error('Error executing ephemeris calculation:', error);
+     return {
+       output: '',
+       error: `Error: ${error.message}`
+     };
+   }
+ };
     
-    return { output: locationInfo };
-  } catch (error: any) {
-    console.error('Error executing ephemeris calculation:', error);
-    return {
-      output: '',
-      error: `Error: ${error.message}`
-    };
-  }
-};
-
+    
 // Birth Chart Calculator Actions
 
 /**
  * Converts raw ephemeris.js result to chart data format
  * This function takes the raw output from ephemeris.js and converts it to our ChartData format
  */
+
+    
+function convertEphemerisResultToChartData(ascendantobj: any, geocodedLocation: any) {
+    // Calculate positions for the main planets
+    const planetData: any = {};
+
+        // The zodiac signs array
+        const zodiacSigns = [
+          'Aries', 'Taurus', 'Gemini', 'Cancer',
+          'Leo', 'Virgo', 'Libra', 'Scorpio',
+          'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+        ];
+    
+    // Define planets to calculate
+    const planets = [
+      { id: 'sun', name: 'Sun' },
+      { id: 'moon', name: 'Moon' },
+      { id: 'mercury', name: 'Mercury' },
+      { id: 'venus', name: 'Venus' },
+      { id: 'mars', name: 'Mars' },
+      { id: 'jupiter', name: 'Jupiter' },
+      { id: 'saturn', name: 'Saturn' },
+      { id: 'uranus', name: 'Uranus' },
+      { id: 'neptune', name: 'Neptune' },
+      { id: 'pluto', name: 'Pluto' }
+    ];
+
+    // Extract planet data
+  for (const planet of planets) {
+    if (ascendantobj.bodies[planet.id]) {
+      const planetInfo = ascendantobj.bodies[planet.id];
+      
+      // Get longitude from the result
+      const longitude = planetInfo.ChartPosition.Ecliptic.DecimalDegrees;
+      
+      const signIndex = Math.floor(longitude / 30) % 12;
+      const degree = longitude % 30;
+      
+      const sign = zodiacSigns[signIndex];
+      
+      planetData[planet.id] = {
+        name: sign,
+        symbol: getZodiacSymbol(signIndex),
+        longitude,
+        degree
+      };
+    }
+  }
+
+  const pointData: any = {};
+
+    const points = [
+      { id: 'northnode', name: 'North Node' },
+      { id: 'southnode', name: 'South Node' },
+      { id: 'lilith', name: 'Lilith' },
+      { id: 'midheaven', name: 'Midheaven' }
+    ];
+
+    for (const point of points) {
+      if (ascendantobj.points[point.id]) {
+        const pointInfo = ascendantobj.points[point.id];
+        
+        // Get longitude from the result
+        const longitude = pointInfo.ChartPosition.Ecliptic.DecimalDegrees;
+        const signIndex = Math.floor(longitude / 30) % 12;
+        const degree = longitude % 30;
+        
+        const sign = zodiacSigns[signIndex];
+        
+        pointData[point.id] = {
+          name: sign,
+          symbol: getZodiacSymbol(signIndex),
+          longitude,
+          degree
+        };
+      }
+    }
+    
+
+    
+    
+    
+    return {
+      planets,
+      houses,
+      ascendant
+    };
+  }
+
+   
+
+
 
 /**
  * Helper function to get zodiac symbol from sign index
@@ -825,13 +951,7 @@ export const saveBirthChart = async (chartData: any) => {
       }
     }
     
-    // Extract planet positions
-    const { 
-      sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto,
-      trueNode, midheaven, southNode, meanNode, chiron, meanLilith
-    } = chartData.planets || {};
-    
-    // Create the birth chart in the database
+   // Create the birth chart in the database
     const chart = await prisma.birthChart.create({
       data: {
         name: chartData.title || 'Birth Chart',
