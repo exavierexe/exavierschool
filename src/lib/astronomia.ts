@@ -40,6 +40,8 @@ export default function chartascendant(year, month, day, hour, minute, latitude,
     decimaldegree,
     bodies,
     points,
-    midheaven
+    midheaven,
+    chartposition
+
   };
 }

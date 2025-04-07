@@ -45,6 +45,13 @@ interface City {
   lng: string;
 }
 
+interface PlanetPointData {
+  name: string;
+  symbol: string;
+  longitude: number;
+  degree: number;
+}
+
 //export function getData() {
 //    const sql = neon(process.env.DATABASE_URL);
  //   const data = await sql`...`;
@@ -447,22 +454,15 @@ export const querySwissEph = async (params: {
     if (Object.keys(planetData).length > 0) {
      formattedOutput += 'Planets:\n';
      for (const [planet, data] of Object.entries(planetData)) {
-      console.log(data.name)
-      console.log(data.degree)
-      // Add type assertion to handle 'unknown' type
-     //  const typedData1 = data.name as { formattedPosition1: string };
-     //  const typedData2 = data.degree as { formattedPosition2: string };
-
-       formattedOutput += `${planet.padEnd(12)} ${data.name} ${data.degree}\n`;
+       const planetData = data as PlanetPointData;
+       formattedOutput += `${planet.padEnd(12)} ${planetData.name} ${planetData.degree}\n`;
      }};
 
      if (Object.keys(pointData).length > 0) {
      formattedOutput += 'Points:\n';
      for (const [point, data] of Object.entries(pointData)) {
-       // Add type assertion to handle 'unknown' type
-      // const typedData = data as { formattedPosition: string };
-      console.log(pointData.midheaven)
-       formattedOutput += `${point.padEnd(12)} ${data.name} ${data.degree}\n`;
+       const pointData = data as PlanetPointData;
+       formattedOutput += `${point.padEnd(12)} ${pointData.name} ${pointData.degree}\n`;
      }};
      
 
@@ -680,13 +680,11 @@ function convertEphemerisResultToChartData(ascendantobj: any, geocodedLocation: 
       }
     }
     
+    const ascendant = ascendantobj.chartposition
 
-    
-    
-    
     return {
       planets,
-      houses,
+      points,
       ascendant
     };
   }
@@ -961,23 +959,51 @@ export const saveBirthChart = async (chartData: any) => {
         ascendant: chartData.ascendant?.name 
           ? `${chartData.ascendant.name} ${chartData.ascendant.degree.toFixed(1)}°`
           : null,
-        midheaven: midheaven?.name 
-          ? `${midheaven.name} ${midheaven.degree.toFixed(1)}°` 
+        midheaven: chartData.planets?.midheaven?.name 
+          ? `${chartData.planets.midheaven.name} ${chartData.planets.midheaven.degree.toFixed(1)}°` 
           : null,
-        sun: sun?.name ? `${sun.name} ${sun.degree.toFixed(1)}°` : null,
-        moon: moon?.name ? `${moon.name} ${moon.degree.toFixed(1)}°` : null,
-        mercury: mercury?.name ? `${mercury.name} ${mercury.degree.toFixed(1)}°` : null,
-        venus: venus?.name ? `${venus.name} ${venus.degree.toFixed(1)}°` : null,
-        mars: mars?.name ? `${mars.name} ${mars.degree.toFixed(1)}°` : null,
-        jupiter: jupiter?.name ? `${jupiter.name} ${jupiter.degree.toFixed(1)}°` : null,
-        saturn: saturn?.name ? `${saturn.name} ${saturn.degree.toFixed(1)}°` : null,
-        uranus: uranus?.name ? `${uranus.name} ${uranus.degree.toFixed(1)}°` : null,
-        neptune: neptune?.name ? `${neptune.name} ${neptune.degree.toFixed(1)}°` : null,
-        pluto: pluto?.name ? `${pluto.name} ${pluto.degree.toFixed(1)}°` : null,
-        trueNode: trueNode?.name ? `${trueNode.name} ${trueNode.degree.toFixed(1)}°` : null,
-        meanNode: meanNode?.name ? `${meanNode.name} ${meanNode.degree.toFixed(1)}°` : null,
-        chiron: chiron?.name ? `${chiron.name} ${chiron.degree.toFixed(1)}°` : null,
-        lilith: meanLilith?.name ? `${meanLilith.name} ${meanLilith.degree.toFixed(1)}°` : null,
+        sun: chartData.planets?.sun?.name 
+          ? `${chartData.planets.sun.name} ${chartData.planets.sun.degree.toFixed(1)}°` 
+          : null,
+        moon: chartData.planets?.moon?.name 
+          ? `${chartData.planets.moon.name} ${chartData.planets.moon.degree.toFixed(1)}°` 
+          : null,
+        mercury: chartData.planets?.mercury?.name 
+          ? `${chartData.planets.mercury.name} ${chartData.planets.mercury.degree.toFixed(1)}°` 
+          : null,
+        venus: chartData.planets?.venus?.name 
+          ? `${chartData.planets.venus.name} ${chartData.planets.venus.degree.toFixed(1)}°` 
+          : null,
+        mars: chartData.planets?.mars?.name 
+          ? `${chartData.planets.mars.name} ${chartData.planets.mars.degree.toFixed(1)}°` 
+          : null,
+        jupiter: chartData.planets?.jupiter?.name 
+          ? `${chartData.planets.jupiter.name} ${chartData.planets.jupiter.degree.toFixed(1)}°` 
+          : null,
+        saturn: chartData.planets?.saturn?.name 
+          ? `${chartData.planets.saturn.name} ${chartData.planets.saturn.degree.toFixed(1)}°` 
+          : null,
+        uranus: chartData.planets?.uranus?.name 
+          ? `${chartData.planets.uranus.name} ${chartData.planets.uranus.degree.toFixed(1)}°` 
+          : null,
+        neptune: chartData.planets?.neptune?.name 
+          ? `${chartData.planets.neptune.name} ${chartData.planets.neptune.degree.toFixed(1)}°` 
+          : null,
+        pluto: chartData.planets?.pluto?.name 
+          ? `${chartData.planets.pluto.name} ${chartData.planets.pluto.degree.toFixed(1)}°` 
+          : null,
+        trueNode: chartData.planets?.trueNode?.name 
+          ? `${chartData.planets.trueNode.name} ${chartData.planets.trueNode.degree.toFixed(1)}°` 
+          : null,
+        meanNode: chartData.planets?.meanNode?.name 
+          ? `${chartData.planets.meanNode.name} ${chartData.planets.meanNode.degree.toFixed(1)}°` 
+          : null,
+        chiron: chartData.planets?.chiron?.name 
+          ? `${chartData.planets.chiron.name} ${chartData.planets.chiron.degree.toFixed(1)}°` 
+          : null,
+        lilith: chartData.planets?.meanLilith?.name 
+          ? `${chartData.planets.meanLilith.name} ${chartData.planets.meanLilith.degree.toFixed(1)}°` 
+          : null,
         houses: chartData.houses || {},
         aspects: chartData.aspects || [],
         userId: chartData.userId || null,
