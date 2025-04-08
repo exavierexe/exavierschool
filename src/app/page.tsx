@@ -38,7 +38,7 @@ export default function Home() {
                 </Button>
               </Link>
               
-              <Link href="/swisseph" className="w-full">
+              <Link href="/birthchart" className="w-full">
                 <Button className="text-lg p-6 rounded-xl flex gap-2 w-full">
                   Birth Chart Calculator<ArrowRightIcon className="size-5" />
                 </Button>

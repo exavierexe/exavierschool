@@ -88,7 +88,7 @@ function parseSwissEphOutput(output: string): ChartData {
   console.log("Raw Ephemeris output:", output);
   
   // Check if we have the new JavaScript Ephemeris output format
-  const isJavaScriptEphemeris = output.includes('---- JAVASCRIPT EPHEMERIS OUTPUT ----');
+  const isJavaScriptEphemeris = output.includes('---- EPHEMERIS OUTPUT ----');
   
   // Extract planet positions
   for (const line of lines) {

@@ -82,7 +82,7 @@ export function NavBar() {
           <Link className="text-lg p-2 hover:bg-gray-700 rounded transition-colors" href="/magick">Magick</Link>
           <Link className="text-lg p-2 hover:bg-gray-700 rounded transition-colors" href="/alchemy">Alchemy</Link>
           <Link className="text-lg p-2 hover:bg-gray-700 rounded transition-colors" href="/library">Library</Link>
-          <Link className="text-lg p-2 hover:bg-gray-700 rounded transition-colors" href="/swisseph">Birth Chart</Link>
+          <Link className="text-lg p-2 hover:bg-gray-700 rounded transition-colors" href="/birthchart">Birth Chart</Link>
           
           <SignedIn>
             <Link className="text-lg p-2 hover:bg-gray-700 rounded transition-colors flex items-center" href="/account">
