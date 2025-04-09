@@ -133,6 +133,11 @@ export function ZodiacWheel({
   const [tooltipInfo, setTooltipInfo] = useState<{ x: number; y: number; text: string } | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState('');
+  const [scale, setScale] = useState(1);
+  const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0 });
   
   // Default title if not provided
   const chartTitle = chartData.title || 'Birth Chart';
@@ -659,16 +664,84 @@ export function ZodiacWheel({
     }
   };
 
+  // Handle touch start
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 2) {
+      // Calculate initial distance between two touches
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      setLastTouchDistance(distance);
+    } else if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - position.x,
+        y: e.touches[0].clientY - position.y
+      });
+    }
+  };
+
+  // Handle touch move
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 2) {
+      // Calculate current distance between two touches
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      
+      // Calculate zoom factor
+      const zoomFactor = distance / lastTouchDistance;
+      setScale(prevScale => Math.min(Math.max(prevScale * zoomFactor, 0.5), 3));
+      setLastTouchDistance(distance);
+    } else if (e.touches.length === 1 && isDragging) {
+      setPosition({
+        x: e.touches[0].clientX - dragStart.x,
+        y: e.touches[0].clientY - dragStart.y
+      });
+    }
+  };
+
+  // Handle touch end
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setLastTouchDistance(0);
+  };
+
+  // Reset zoom and position
+  const handleDoubleClick = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
   return (
-    <div className="relative">
-      <canvas 
-        ref={canvasRef} 
-        width={width} 
-        height={height}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        className="border border-gray-700 rounded-lg shadow-xl cursor-crosshair"
-      />
+    <div className="relative overflow-hidden">
+      <div 
+        className="touch-manipulation"
+        style={{
+          transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+          transformOrigin: 'center',
+          transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+        }}
+      >
+        <canvas 
+          ref={canvasRef} 
+          width={width} 
+          height={height}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onDoubleClick={handleDoubleClick}
+          className="border border-gray-700 rounded-lg shadow-xl cursor-crosshair"
+        />
+      </div>
       
       {tooltipInfo && (
         <div 
