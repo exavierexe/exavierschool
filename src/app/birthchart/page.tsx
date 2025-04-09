@@ -64,12 +64,13 @@ function parseSwissEphOutput(output: string): ChartData {
     'Uranus': 'uranus',
     'Neptune': 'neptune',
     'Pluto': 'pluto',
-    'Mean Node': 'meanNode',
+    'North Node': 'northnode',
     'True Node': 'trueNode',
+    'South Node': 'southnode',
     'Node': 'meanNode',            // Alternative name
-    'mean Lilith': 'meanLilith',
+    'Lilith': 'lilith',
     'osc. Lilith': 'oscLilith',    // Oscillating Lilith
-    'Lilith': 'meanLilith',        // Alternative name
+          // Alternative name
     'Chiron': 'chiron',
     'Ceres': 'ceres',
     'Pallas': 'pallas',
@@ -83,15 +84,24 @@ function parseSwissEphOutput(output: string): ChartData {
 
   // Map planet keys to their symbols
   const planetSymbols: Record<string, string> = {
-    'meanNode': '☊',
-    'trueNode': '☊',
-    'meanLilith': '⚸',
-    'oscLilith': '⚸',
-    'chiron': '⚷',
-    'ceres': '⚳',
-    'pallas': '⚴',
-    'juno': '⚵',
-    'vesta': '⚶'
+    sun: '☉',
+    moon: '☽',
+    mercury: '☿',
+    venus: '♀',
+    mars: '♂',
+    jupiter: '♃',
+    saturn: '♄',
+    uranus: '♅',
+    neptune: '♆',
+    pluto: '♇',
+    ascendant: 'Asc',
+    midheaven: 'MC',
+    meanNode: '☊',
+    trueNode: '☊',
+    southNode: '☋',
+    meanLilith: '⚸',
+    oscLilith: '⚸',
+    chiron: '⚷'
   };
   
   // Parse the output line by line

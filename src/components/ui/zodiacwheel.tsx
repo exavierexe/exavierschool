@@ -16,10 +16,10 @@ const PLANET_SYMBOLS: Record<string, string> = {
   pluto: '♇',
   ascendant: 'Asc',
   midheaven: 'MC',     // Medium Coeli (Midheaven)
-  meanNode: '☊',       // Mean North Node
+  northnode: '☊',       // Mean North Node
   trueNode: '☊',       // True North Node
-  southNode: '☋',      // South Node (always opposite to North Node)
-  meanLilith: '⚸',     // Lilith
+  southnode: '☋',      // South Node (always opposite to North Node)
+  lilith: '⚸',     // Lilith
   oscLilith: '⚸',      // Oscillating Lilith
   chiron: '⚷'         // Chiron
 };
@@ -389,7 +389,10 @@ export function ZodiacWheel({
         ctx.fillStyle = planetColors[name] || '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(PLANET_SYMBOLS[name] || name.charAt(0).toUpperCase(), x, y);
+        
+        // Always use the symbol from PLANET_SYMBOLS
+        const symbol = PLANET_SYMBOLS[name] || name.charAt(0).toUpperCase();
+        ctx.fillText(symbol, x, y);
         
         // Show degree as small text below planet
         const degText = planet.degree.toFixed(0) + '°';
