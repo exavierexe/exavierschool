@@ -1058,7 +1058,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Birth Chart Calculator</h1>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-8">
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Calculate New Chart</h2>
@@ -1254,8 +1254,8 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                         location: location,
                         title: `Birth Chart - ${date}`,
                       } as ChartData} 
-                      width={window.innerWidth < 768 ? window.innerWidth - 40 : 600} 
-                      height={window.innerWidth < 768 ? window.innerWidth - 40 : 600}
+                      width={600} 
+                      height={600}
                       onSaveChart={handleSaveChart}
                       onTitleChange={handleTitleChange}
                     />
@@ -1273,7 +1273,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Common Parameters</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="p-4">
             <h3 className="font-bold">-p[planets]</h3>
             <p className="text-sm">Specify planets: 0=Sun through 9=Pluto, D=nodes, A=mean node, t=true node, j=lilith</p>

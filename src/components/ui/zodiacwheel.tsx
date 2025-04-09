@@ -469,10 +469,23 @@ export function ZodiacWheel({
       
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'left';
-      const locationText = chartData.location.length > 30 
-        ? chartData.location.substring(0, 30) + '...' 
-        : chartData.location;
-      ctx.fillText(locationText, centerX + centerWidth / 2 + 5, centerY + yOffset);
+      
+      // Split location into two lines if it's too long
+      const locationText = chartData.location;
+      const maxCharsPerLine = 20;
+      
+      if (locationText.length > maxCharsPerLine) {
+        // Find the last space before the maxCharsPerLine
+        const splitIndex = locationText.lastIndexOf(' ', maxCharsPerLine);
+        const line1 = locationText.substring(0, splitIndex);
+        const line2 = locationText.substring(splitIndex + 1);
+        
+        ctx.fillText(line1, centerX + centerWidth / 2 + 5, centerY + yOffset);
+        yOffset += 18;
+        ctx.fillText(line2, centerX + centerWidth / 2 + 5, centerY + yOffset);
+      } else {
+        ctx.fillText(locationText, centerX + centerWidth / 2 + 5, centerY + yOffset);
+      }
       yOffset += 25;
     }
     
