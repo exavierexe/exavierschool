@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from 'react';
 
 // Planet symbols (unicode)
 const PLANET_SYMBOLS: Record<string, string> = {
-  sun: '☉',
+  sun: '☉', 
   moon: '☽',
   mercury: '☿',
   venus: '♀',
