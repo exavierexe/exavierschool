@@ -408,10 +408,9 @@ export const querySwissEph = async (params: {
   const pointData: any = {};
 
     const points = [
-      { id: 'northnode', name: 'North Node' },
-      { id: 'southnode', name: 'South Node' },
-      { id: 'lilith', name: 'Lilith' }
-      
+      { id: 'northnode', name: 'North Node', symbol: '☊' },
+      { id: 'southnode', name: 'South Node', symbol: '☋' },
+      { id: 'lilith', name: 'Lilith', symbol: '⚸' }
     ];
 
     for (const point of points) {
@@ -427,7 +426,7 @@ export const querySwissEph = async (params: {
         
         pointData[point.id] = {
           name: sign,
-          symbol: getZodiacSymbol(signIndex),
+          symbol: point.symbol,
           longitude,
           degree
         };
@@ -585,7 +584,13 @@ export const querySwissEph = async (params: {
  ---- EPHEMERIS OUTPUT ----
 ${formattedOutput}`;
      
-     return { output: locationInfo };
+     // Return both the formatted output and the calculation data
+     return { 
+       output: locationInfo,
+       planetData,
+       pointData,
+       houseData
+     };
    } catch (error: any) {
      console.error('Error executing ephemeris calculation:', error);
      return {

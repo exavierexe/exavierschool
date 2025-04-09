@@ -52,7 +52,7 @@ function parseSwissEphOutput(output: string): ChartData {
   ];
   const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
   
-  // Map planet identifiers in ephemeris output to our keys
+  // Map planet names to their keys
   const planetMap: Record<string, string> = {
     'Sun': 'sun',
     'Moon': 'moon',
@@ -79,6 +79,19 @@ function parseSwissEphOutput(output: string): ChartData {
     'Asc': 'ascendant',            // Alternative name for Ascendant
     'Midheaven': 'midheaven',      // Midheaven
     'MC': 'midheaven'              // Alternative name for Midheaven
+  };
+
+  // Map planet keys to their symbols
+  const planetSymbols: Record<string, string> = {
+    'meanNode': '☊',
+    'trueNode': '☊',
+    'meanLilith': '⚸',
+    'oscLilith': '⚸',
+    'chiron': '⚷',
+    'ceres': '⚳',
+    'pallas': '⚴',
+    'juno': '⚵',
+    'vesta': '⚶'
   };
   
   // Parse the output line by line
@@ -375,7 +388,7 @@ function parseSwissEphOutput(output: string): ChartData {
   }
   
   // If no planets were found or critical planets are missing, create them for a valid chart
-  const requiredPlanets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'trueNode', 'midheaven'];
+  const requiredPlanets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'midheaven'];
   let missingPlanets = requiredPlanets.filter(planet => !planets[planet]);
   
   if (missingPlanets.length > 0) {
@@ -458,6 +471,12 @@ function ChartParamsWrapper({ children }: { children: (props: { chartIdFromUrl: 
   return <>{children({ chartIdFromUrl })}</>;
 }
 
+// Helper function to get zodiac symbol from sign index
+function getZodiacSymbol(signIndex: number): string {
+  const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+  return ZODIAC_SYMBOLS[signIndex] || '?';
+}
+
 function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) {
   const { isLoaded, isSignedIn, user } = useUser();
   
@@ -477,6 +496,11 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   const [time, setTime] = useState(formattedTime)
   const [location, setLocation] = useState('') // Will be determined by geolocation
   const [locationLoading, setLocationLoading] = useState(true)
+  
+  // State for ephemeris calculation data
+  const [planetData, setPlanetData] = useState<any>({})
+  const [pointData, setPointData] = useState<any>({})
+  const [houseData, setHouseData] = useState<any>({})
   
   // Get user's approximate location using geolocation API
   useEffect(() => {
@@ -568,10 +592,9 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
     setResult(null)
     setChartData(null)
     setShowChart(false)
-
+    
     try {
       // Format date for the API call
-      // The date is in DD.MM.YYYY format, we need to parse it correctly
       const dateParts = date.split('.');
       const formattedDate = {
         day: parseInt(dateParts[0]),
@@ -584,83 +607,28 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       const hour = parseInt(timeParts[0]);
       const minute = parseInt(timeParts[1]);
       
-      // Call querySwissEph to use the exact dateObj created on line 298
+      // Call querySwissEph
       const response = await querySwissEph({
         date,
         time,
         location
       })
       
-      // Store the response for display
+      // Store the raw response
       setResult(response)
       
-      // Parse the result to generate chart data
-      if (response.output) {
-        try {
-          const parsed = parseSwissEphOutput(response.output)
-          
-          // Calculate South Node from True Node if available
-          if (parsed.planets.trueNode) {
-            const trueNodeLong = parsed.planets.trueNode.longitude;
-            const southNodeLong = (trueNodeLong + 180) % 360;
-            const southNodeSignIndex = Math.floor(southNodeLong / 30);
-            const southNodeDegree = southNodeLong % 30;
-            
-            parsed.planets.southNode = {
-              name: ZODIAC_SIGNS[southNodeSignIndex],
-              symbol: ZODIAC_SYMBOLS[southNodeSignIndex],
-              longitude: southNodeLong,
-              degree: southNodeDegree
-            };
-          }
-          
-          // Add date, time, and location to the chart data
-          parsed.date = date
-          parsed.time = time
-          parsed.location = location
-          parsed.title = `Birth Chart - ${date}`
-          
-          // Mark that this chart was calculated using the dateObj from line 298
-          parsed.usedDateObjFromLine298 = true
-          
-          console.log("Parsed chart data (using dateObj from line 298):", parsed)
-          setChartData(parsed)
-        } catch (error) {
-          console.error("Failed to parse chart data:", error)
-          // Create a minimal chart data object with default planets
-          const defaultChart: ChartData = {
-            planets: {
-              sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 },
-              moon: { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 },
-              mercury: { name: 'Gemini', symbol: '♊ᴿ', longitude: 75, degree: 15 }, // Mercury retrograde as example
-              trueNode: { name: 'Cancer', symbol: '♋', longitude: 105, degree: 15 },
-              southNode: { name: 'Capricorn', symbol: '♑', longitude: 285, degree: 15 }, // Opposite true node
-              midheaven: { name: 'Pisces', symbol: '♓', longitude: 350, degree: 20 }
-            },
-            houses: {} as Record<string, { cusp: number; name: string; symbol: string; degree: number }>,
-            ascendant: { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
-            date: date || "Example Date",
-            time: time || "Example Time",
-            location: location || "Example Location",
-            title: `Birth Chart - ${date || "Example"}`
-          }
-          
-          // Fill in default houses
-          for (let i = 1; i <= 12; i++) {
-            const angle = (i - 1) * 30
-            const signIndex = Math.floor(angle / 30) % 12
-            const houseKey = `house${i}` as keyof typeof defaultChart.houses
-            defaultChart.houses[houseKey] = {
-              cusp: angle,
-              name: ZODIAC_SIGNS[signIndex],
-              symbol: ZODIAC_SYMBOLS[signIndex],
-              degree: 0
-            }
-          }
-          
-          setChartData(defaultChart)
-        }
-      }
+      // Extract and store the calculation data
+      if (response.planetData) setPlanetData(response.planetData);
+      if (response.pointData) setPointData(response.pointData);
+      if (response.houseData) setHouseData(response.houseData);
+      
+      // Log the data we received
+      console.log("Received calculation data:", {
+        planetData: response.planetData,
+        pointData: response.pointData,
+        houseData: response.houseData
+      });
+      
     } catch (error) {
       setResult({ output: '', error: 'Failed to execute query. Please try again.' })
     } finally {
@@ -669,13 +637,106 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   }
   
   const handleShowChart = () => {
-    // Simply show the chart with the result that was already calculated using dateObj from line 298
     setShowChart(true);
     setSaveResult(null);
     
-    // No need to run any additional calculations - the chart data was
-    // already generated using the dateObj from line 298 during handleSubmit
-    console.log("Showing chart calculated with dateObj from line 298");
+    // Create chart data using the stored calculation data
+    const planets: Record<string, any> = {};
+    
+    // Define planet symbols
+    const planetSymbols: Record<string, string> = {
+      sun: '☉',
+      moon: '☽',
+      mercury: '☿',
+      venus: '♀',
+      mars: '♂',
+      jupiter: '♃',
+      saturn: '♄',
+      uranus: '♅',
+      neptune: '♆',
+      pluto: '♇',
+      ascendant: 'Asc',
+      midheaven: 'MC',
+      meanNode: '☊',
+      trueNode: '☊',
+      southNode: '☋',
+      meanLilith: '⚸',
+      oscLilith: '⚸',
+      chiron: '⚷'
+    };
+    
+    // Combine planet and point data
+    for (const key in planetData) {
+      if (planetData[key]) {
+        planets[key] = {
+          ...planetData[key],
+          degree: parseFloat(planetData[key].degree) || 0,
+          symbol: planetSymbols[key] || planetData[key].symbol
+        };
+      }
+    }
+    
+    for (const key in pointData) {
+      if (pointData[key]) {
+        planets[key] = {
+          ...pointData[key],
+          degree: parseFloat(pointData[key].degree) || 0,
+          symbol: planetSymbols[key] || pointData[key].symbol
+        };
+      }
+    }
+    
+    // Ensure all required planets exist
+    const requiredPlanets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'midheaven'];
+    for (const planet of requiredPlanets) {
+      if (!planets[planet] || typeof planets[planet].degree !== 'number') {
+        console.log(`Adding placeholder for ${planet}`);
+        planets[planet] = {
+          name: 'Aries',
+          symbol: planetSymbols[planet] || '♈',
+          longitude: 0,
+          degree: 0
+        };
+      }
+    }
+    
+    // Prepare houses data
+    const houses: Record<string, any> = {};
+    for (let i = 1; i <= 12; i++) {
+      const houseKey = `house${i}`;
+      const actionHouseKey = `House ${i}`;
+      
+      if (houseData[actionHouseKey]) {
+        houses[houseKey] = {
+          cusp: houseData[actionHouseKey].longitude,
+          name: houseData[actionHouseKey].sign,
+          symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData[actionHouseKey].sign)),
+          degree: houseData[actionHouseKey].degree
+        };
+      }
+    }
+    
+    // Get ascendant from houseData
+    const ascendant = houseData['Ascendant'] ? {
+      name: houseData['Ascendant'].sign,
+      symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData['Ascendant'].sign)),
+      longitude: houseData['Ascendant'].longitude,
+      degree: houseData['Ascendant'].degree
+    } : { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 };
+    
+    // Create the chart data object
+    const newChartData = {
+      planets,
+      houses,
+      ascendant,
+      date,
+      time,
+      location,
+      title: `Birth Chart - ${date}`
+    };
+    
+    console.log("Generated chart data:", newChartData);
+    setChartData(newChartData);
   }
   
   // Handler for saving the chart
@@ -841,7 +902,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
           // Get the current date and time
           const now = new Date();
           setDate(`${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`);
-          setTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+          setTime(now.toLocaleTimeString());
         }
       } catch (error) {
         console.error('Error loading initial chart:', error);
@@ -1114,29 +1175,70 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                   <div className="flex justify-center">
                     <ZodiacWheel 
                       chartData={chartData || {
-                        planets: {
-                          sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 },
-                          moon: { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 },
-                          mercury: { name: 'Gemini', symbol: '♊ᴿ', longitude: 75, degree: 15 },
-                          trueNode: { name: 'Cancer', symbol: '♋', longitude: 105, degree: 15 },
-                          southNode: { name: 'Capricorn', symbol: '♑', longitude: 285, degree: 15 },
-                          midheaven: { name: 'Pisces', symbol: '♓', longitude: 350, degree: 20 }
-                        },
-                        houses: {
-                          house1: { cusp: 0, name: 'Aries', symbol: '♈', degree: 0 },
-                          house2: { cusp: 30, name: 'Taurus', symbol: '♉', degree: 0 },
-                          house3: { cusp: 60, name: 'Gemini', symbol: '♊', degree: 0 },
-                          house4: { cusp: 90, name: 'Cancer', symbol: '♋', degree: 0 },
-                          house5: { cusp: 120, name: 'Leo', symbol: '♌', degree: 0 },
-                          house6: { cusp: 150, name: 'Virgo', symbol: '♍', degree: 0 },
-                          house7: { cusp: 180, name: 'Libra', symbol: '♎', degree: 0 },
-                          house8: { cusp: 210, name: 'Scorpio', symbol: '♏', degree: 0 },
-                          house9: { cusp: 240, name: 'Sagittarius', symbol: '♐', degree: 0 },
-                          house10: { cusp: 270, name: 'Capricorn', symbol: '♑', degree: 0 },
-                          house11: { cusp: 300, name: 'Aquarius', symbol: '♒', degree: 0 },
-                          house12: { cusp: 330, name: 'Pisces', symbol: '♓', degree: 0 }
-                        } as Record<string, { cusp: number; name: string; symbol: string; degree: number }>,
-                        ascendant: { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
+                        planets: (() => {
+                          // Combine planet and point data
+                          const combinedData: Record<string, any> = {};
+                          
+                          // Add planet data if available
+                          if (Object.keys(planetData).length > 0) {
+                            Object.entries(planetData).forEach(([key, value]) => {
+                              combinedData[key] = value;
+                            });
+                          }
+                          
+                          // Add point data if available
+                          if (Object.keys(pointData).length > 0) {
+                            Object.entries(pointData).forEach(([key, value]) => {
+                              combinedData[key] = value;
+                            });
+                          }
+                          
+                          // Return combined data or defaults if empty
+                          return Object.keys(combinedData).length > 0 ? combinedData : {
+                            sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 },
+                            moon: { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 },
+                            mercury: { name: 'Gemini', symbol: '♊', longitude: 75, degree: 15 },
+                          };
+                        })(),
+                        houses: Object.keys(houseData).length > 0 ? 
+                          // Convert house format to match what ZodiacWheel expects
+                          Object.entries(houseData)
+                            .filter(([key]) => key.startsWith('House '))
+                            .reduce((acc, [key, value]) => {
+                              const houseNum = parseInt(key.replace('House ', ''));
+                              if (!isNaN(houseNum) && houseNum >= 1 && houseNum <= 12) {
+                                const houseKey = `house${houseNum}`;
+                                acc[houseKey] = {
+                                  cusp: (value as any).longitude,
+                                  name: (value as any).sign,
+                                  symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf((value as any).sign)),
+                                  degree: (value as any).degree,
+                                  longitude: (value as any).longitude
+                                };
+                              }
+                              return acc;
+                            }, {} as Record<string, any>) : 
+                          // Default houses if none provided
+                          {
+                            house1: { cusp: 0, name: 'Aries', symbol: '♈', degree: 0 },
+                            house2: { cusp: 30, name: 'Taurus', symbol: '♉', degree: 0 },
+                            house3: { cusp: 60, name: 'Gemini', symbol: '♊', degree: 0 },
+                            house4: { cusp: 90, name: 'Cancer', symbol: '♋', degree: 0 },
+                            house5: { cusp: 120, name: 'Leo', symbol: '♌', degree: 0 },
+                            house6: { cusp: 150, name: 'Virgo', symbol: '♍', degree: 0 },
+                            house7: { cusp: 180, name: 'Libra', symbol: '♎', degree: 0 },
+                            house8: { cusp: 210, name: 'Scorpio', symbol: '♏', degree: 0 },
+                            house9: { cusp: 240, name: 'Sagittarius', symbol: '♐', degree: 0 },
+                            house10: { cusp: 270, name: 'Capricorn', symbol: '♑', degree: 0 },
+                            house11: { cusp: 300, name: 'Aquarius', symbol: '♒', degree: 0 },
+                            house12: { cusp: 330, name: 'Pisces', symbol: '♓', degree: 0 },
+                          },
+                        ascendant: houseData['Ascendant'] ? {
+                          name: houseData['Ascendant'].sign,
+                          symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData['Ascendant'].sign)),
+                          longitude: houseData['Ascendant'].longitude,
+                          degree: houseData['Ascendant'].degree
+                        } : { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
                         date: date,
                         time: time,
                         location: location,

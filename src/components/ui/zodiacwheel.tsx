@@ -20,7 +20,8 @@ const PLANET_SYMBOLS: Record<string, string> = {
   trueNode: '☊',       // True North Node
   southNode: '☋',      // South Node (always opposite to North Node)
   meanLilith: '⚸',     // Lilith
-  chiron: '⚷',         // Chiron
+  oscLilith: '⚸',      // Oscillating Lilith
+  chiron: '⚷'         // Chiron
 };
 
 // Zodiac sign symbols (unicode)
@@ -89,7 +90,6 @@ export type ChartData = {
   formattedYear?: string; // Year component with 4 digits
   hour?: number; // Hour value from the time
   minute?: number; // Minute value from the time
-  usedDateObjFromLine298?: boolean; // Flag to indicate if dateObj from line 298 was used
 };
 
 type ZodiacWheelProps = {
@@ -282,18 +282,30 @@ export function ZodiacWheel({
   
   // Draw planets in their respective houses
   const drawPlanets = (ctx: CanvasRenderingContext2D) => {
-    if (!chartData || !chartData.planets) return;
+    if (!chartData || !chartData.planets) {
+      console.log('No chart data or planets found');
+      return;
+    }
+    
+    console.log('Chart data planets:', chartData.planets);
     
     // Filter valid planets with longitude data and exclude mean node
     const planetEntries = Object.entries(chartData.planets)
-      .filter(([name, planet]) => 
-        planet && 
-        typeof planet.longitude === 'number' && 
-        name !== 'meanNode'  // Exclude mean node
-      );
+      .filter(([name, planet]) => {
+        const isValid = planet && typeof planet.longitude === 'number' && name !== 'meanNode';
+        if (!isValid) {
+          console.log(`Filtered out planet ${name}:`, planet);
+        }
+        return isValid;
+      });
+    
+    console.log('Filtered planet entries:', planetEntries);
     
     // Skip if no valid planets
-    if (planetEntries.length === 0) return;
+    if (planetEntries.length === 0) {
+      console.log('No valid planets found after filtering');
+      return;
+    }
     
     // Find the ascendant sign for marking
     const ascendantSign = Math.floor((chartData.ascendant?.longitude || 0) / 30) % 12;
@@ -508,12 +520,13 @@ export function ZodiacWheel({
     if (chartData.ascendant) {
       const asc = chartData.ascendant;
       const signAbbr = getSignAbbreviation(asc.name);
+      const degree = typeof asc.degree === 'number' ? asc.degree : parseFloat(asc.degree) || 0;
       
       ctx.fillStyle = '#ff0'; // Yellow for ascendant
       ctx.textAlign = 'center';
       ctx.font = 'bold 12px Arial';
       ctx.fillText(
-        `Asc: ${asc.degree.toFixed(0)}° ${signAbbr}`,
+        `Asc: ${degree.toFixed(0)}° ${signAbbr}`,
         centerX + centerWidth / 2,
         centerY + centerHeight - 15
       );
@@ -581,7 +594,10 @@ export function ZodiacWheel({
     
     if (planetsInHouse.length > 0) {
       tooltipText += '\n' + planetsInHouse
-        .map(([name, planet]) => `${name}: ${planet.degree.toFixed(1)}°`)
+        .map(([name, planet]: [string, { degree: number | string }]) => {
+          const degree = typeof planet.degree === 'number' ? planet.degree : parseFloat(planet.degree) || 0;
+          return `${name}: ${degree.toFixed(1)}°`;
+        })
         .join('\n');
     }
     
