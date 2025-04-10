@@ -6,7 +6,7 @@ import { Button } from './button';
 import { getBirthCharts, deleteBirthChart } from '@/actions';
 
 type SavedChartProps = {
-  userId?: number;
+  userId: number;
   onSelectChart?: (chartId: number) => void;
 };
 
@@ -118,32 +118,31 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
                   <p className="text-sm"><span className="text-yellow-400">☉</span> Sun: {chart.sun}</p>
                   {chart.moon && <p className="text-sm"><span className="text-blue-300">☽</span> Moon: {chart.moon}</p>}
                   {chart.ascendant && <p className="text-sm"><span className="text-purple-400">Asc:</span> {chart.ascendant}</p>}
-                
                   {chart.trueNode && <p className="text-sm"><span className="text-green-400">☊</span> North Node: {chart.trueNode}</p>}
                 </div>
               )}
             </div>
             
-            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-700">
+            <div className="mt-4 flex gap-2">
               {onSelectChart && (
-                <Button 
-                  onClick={() => onSelectChart(chart.id)} 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  onClick={() => onSelectChart(chart.id)}
                   className="flex-1"
                 >
-                  View
+                  View Chart
                 </Button>
               )}
               
               <Button
                 onClick={() => handleDeleteChart(chart.id)}
                 variant="destructive"
-                size="sm"
                 className="flex-1"
-                disabled={deleteStatus !== null && deleteStatus.id === chart.id && deleteStatus.status === 'pending'}
+                disabled={deleteStatus?.id === chart.id && deleteStatus?.status === 'pending'}
               >
-                {deleteStatus !== null && deleteStatus.id === chart.id && deleteStatus.status === 'pending' ? 'Deleting...' : 'Delete'}
+                {deleteStatus?.id === chart.id ? (
+                  deleteStatus.status === 'pending' ? 'Deleting...' : 
+                  deleteStatus.status === 'success' ? 'Deleted' : 'Error'
+                ) : 'Delete'}
               </Button>
             </div>
           </Card>
