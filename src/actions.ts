@@ -954,7 +954,15 @@ export const saveBirthChart = async (chartData: any) => {
       }
     }
     
-   // Create the birth chart in the database
+    // Validate required data
+    if (!chartData.planets || !chartData.ascendant) {
+      return {
+        success: false,
+        error: "Missing required chart data (planets or ascendant)."
+      };
+    }
+    
+    // Create the birth chart in the database
     const chart = await prisma.birthChart.create({
       data: {
         name: chartData.title || 'Birth Chart',
@@ -962,52 +970,52 @@ export const saveBirthChart = async (chartData: any) => {
         birthTime: chartData.time || '',
         birthPlace: chartData.location || '',
         ascendant: chartData.ascendant?.name 
-          ? `${chartData.ascendant.name} ${chartData.ascendant.degree.toFixed(1)}°`
+          ? `${chartData.ascendant.name} ${chartData.ascendant.degree?.toFixed(1) || 0}°`
           : null,
         midheaven: chartData.planets?.midheaven?.name 
-          ? `${chartData.planets.midheaven.name} ${chartData.planets.midheaven.degree.toFixed(1)}°` 
+          ? `${chartData.planets.midheaven.name} ${chartData.planets.midheaven.degree?.toFixed(1) || 0}°` 
           : null,
         sun: chartData.planets?.sun?.name 
-          ? `${chartData.planets.sun.name} ${chartData.planets.sun.degree.toFixed(1)}°` 
+          ? `${chartData.planets.sun.name} ${chartData.planets.sun.degree?.toFixed(1) || 0}°` 
           : null,
         moon: chartData.planets?.moon?.name 
-          ? `${chartData.planets.moon.name} ${chartData.planets.moon.degree.toFixed(1)}°` 
+          ? `${chartData.planets.moon.name} ${chartData.planets.moon.degree?.toFixed(1) || 0}°` 
           : null,
         mercury: chartData.planets?.mercury?.name 
-          ? `${chartData.planets.mercury.name} ${chartData.planets.mercury.degree.toFixed(1)}°` 
+          ? `${chartData.planets.mercury.name} ${chartData.planets.mercury.degree?.toFixed(1) || 0}°` 
           : null,
         venus: chartData.planets?.venus?.name 
-          ? `${chartData.planets.venus.name} ${chartData.planets.venus.degree.toFixed(1)}°` 
+          ? `${chartData.planets.venus.name} ${chartData.planets.venus.degree?.toFixed(1) || 0}°` 
           : null,
         mars: chartData.planets?.mars?.name 
-          ? `${chartData.planets.mars.name} ${chartData.planets.mars.degree.toFixed(1)}°` 
+          ? `${chartData.planets.mars.name} ${chartData.planets.mars.degree?.toFixed(1) || 0}°` 
           : null,
         jupiter: chartData.planets?.jupiter?.name 
-          ? `${chartData.planets.jupiter.name} ${chartData.planets.jupiter.degree.toFixed(1)}°` 
+          ? `${chartData.planets.jupiter.name} ${chartData.planets.jupiter.degree?.toFixed(1) || 0}°` 
           : null,
         saturn: chartData.planets?.saturn?.name 
-          ? `${chartData.planets.saturn.name} ${chartData.planets.saturn.degree.toFixed(1)}°` 
+          ? `${chartData.planets.saturn.name} ${chartData.planets.saturn.degree?.toFixed(1) || 0}°` 
           : null,
         uranus: chartData.planets?.uranus?.name 
-          ? `${chartData.planets.uranus.name} ${chartData.planets.uranus.degree.toFixed(1)}°` 
+          ? `${chartData.planets.uranus.name} ${chartData.planets.uranus.degree?.toFixed(1) || 0}°` 
           : null,
         neptune: chartData.planets?.neptune?.name 
-          ? `${chartData.planets.neptune.name} ${chartData.planets.neptune.degree.toFixed(1)}°` 
+          ? `${chartData.planets.neptune.name} ${chartData.planets.neptune.degree?.toFixed(1) || 0}°` 
           : null,
         pluto: chartData.planets?.pluto?.name 
-          ? `${chartData.planets.pluto.name} ${chartData.planets.pluto.degree.toFixed(1)}°` 
+          ? `${chartData.planets.pluto.name} ${chartData.planets.pluto.degree?.toFixed(1) || 0}°` 
           : null,
         trueNode: chartData.planets?.trueNode?.name 
-          ? `${chartData.planets.trueNode.name} ${chartData.planets.trueNode.degree.toFixed(1)}°` 
+          ? `${chartData.planets.trueNode.name} ${chartData.planets.trueNode.degree?.toFixed(1) || 0}°` 
           : null,
         meanNode: chartData.planets?.meanNode?.name 
-          ? `${chartData.planets.meanNode.name} ${chartData.planets.meanNode.degree.toFixed(1)}°` 
+          ? `${chartData.planets.meanNode.name} ${chartData.planets.meanNode.degree?.toFixed(1) || 0}°` 
           : null,
         chiron: chartData.planets?.chiron?.name 
-          ? `${chartData.planets.chiron.name} ${chartData.planets.chiron.degree.toFixed(1)}°` 
+          ? `${chartData.planets.chiron.name} ${chartData.planets.chiron.degree?.toFixed(1) || 0}°` 
           : null,
         lilith: chartData.planets?.meanLilith?.name 
-          ? `${chartData.planets.meanLilith.name} ${chartData.planets.meanLilith.degree.toFixed(1)}°` 
+          ? `${chartData.planets.meanLilith.name} ${chartData.planets.meanLilith.degree?.toFixed(1) || 0}°` 
           : null,
         houses: chartData.houses || {},
         aspects: chartData.aspects || [],

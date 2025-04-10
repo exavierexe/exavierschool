@@ -5,10 +5,10 @@ import { NavBar } from "@/components/ui/navbar";
 import { addUser } from "@/actions";
 import { Button } from "@/components/ui/button";
 import { CardWithForm } from "@/components/ui/cardwithform";
-import { SignUpButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignUpButton } from "@clerk/nextjs";
 import { ArrowRightIcon } from "lucide-react";
 import { hero } from "@/components/ui/heroimage";
-import { ModeToggle } from "@/components/ui/modetoggle"
+
 
 import heroimage from "../public/visuals/heroimage.jpg";
 export default function Home() {
@@ -21,7 +21,9 @@ export default function Home() {
         <section className="min-h-screen flex items-center justify-center text-center text-balance flex-col gap-8 px-9">
           <h1 className="text-6xl lg:text-7xl xl:text-8xl font-bold tacking-tight">Realize Your Potential</h1>
           <p className="text-lg lg:text-3xl max-w-screen-xl">Insights and techniques for personal growth.</p>        
-          <ModeToggle/>
+          
+          
+
           <div className="flex flex-col gap-10 w-full max-w-6xl mt-8">
             {/* Chart Section */}
             <div className="flex justify-center w-full">
@@ -49,12 +51,20 @@ export default function Home() {
                   Tarot self service<ArrowRightIcon className="size-5" />
                 </Button>
               </Link>
-              
+              <SignedIn>
               <Link href="/account" className="w-full">
                 <Button className="text-lg p-6 rounded-xl flex gap-2 w-full" variant="outline">
                   Manage Your Account<ArrowRightIcon className="size-5" />
                 </Button>
               </Link>
+              </SignedIn>
+             <SignedOut>
+                <SignUpButton>
+                <Button className="text-lg p-6 rounded-xl flex gap-2 w-full" variant="outline">
+                  Sign Up<ArrowRightIcon className="size-5" />
+                </Button>
+                </SignUpButton>
+              </SignedOut>
             </div>
           </div>
         </section>
