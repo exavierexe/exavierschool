@@ -923,20 +923,12 @@ export async function determineTimeZone(longitude: number, latitude: number): Pr
 }
 
 // Save a birth chart
-export const saveBirthChart = async (chartData: any, userId?: number) => {
+export const saveBirthChart = async (chartData: any) => {
   try {
     if (!chartData) {
       return {
         success: false,
         error: "Missing chart data."
-      };
-    }
-
-    // Check if user is logged in
-    if (!userId) {
-      return {
-        success: false,
-        error: "You must be logged in to save a chart."
       };
     }
     
@@ -1035,7 +1027,7 @@ export const saveBirthChart = async (chartData: any, userId?: number) => {
         lilith: formatPlanetData(chartData.planets?.lilith),
         houses: chartData.houses || {},
         aspects: chartData.aspects || [],
-        userId: userId, // Always set the userId
+        userId: chartData.userId || null,
       }
     });
     
@@ -1051,14 +1043,11 @@ export const saveBirthChart = async (chartData: any, userId?: number) => {
 };
 
 // Get all birth charts for a user
-export const getBirthCharts = async (userId: number) => {
+export const getBirthCharts = async (userId?: number) => {
   try {
-    if (!userId) {
-      return [];
-    }
-
+    const where = userId ? { userId } : {};
     const charts = await prisma.birthChart.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' }
     });
     return charts;
@@ -1069,17 +1058,10 @@ export const getBirthCharts = async (userId: number) => {
 };
 
 // Get a specific birth chart by ID
-export const getBirthChartById = async (chartId: number, userId: number) => {
+export const getBirthChartById = async (chartId: number) => {
   try {
-    if (!userId) {
-      return null;
-    }
-
-    const chart = await prisma.birthChart.findFirst({
-      where: { 
-        id: chartId,
-        userId: userId
-      }
+    const chart = await prisma.birthChart.findUnique({
+      where: { id: chartId }
     });
     return chart;
   } catch (error) {
