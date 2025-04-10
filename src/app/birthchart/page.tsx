@@ -1271,35 +1271,6 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         </Card>
       </div>
       
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">Common Parameters</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="p-4">
-            <h3 className="font-bold">-p[planets]</h3>
-            <p className="text-sm">Specify planets: 0=Sun through 9=Pluto, D=nodes, A=mean node, t=true node, j=lilith</p>
-          </Card>
-          <Card className="p-4">
-            <h3 className="font-bold">-fPlsj</h3>
-            <p className="text-sm">Format output with planet name, longitude in signs</p>
-          </Card>
-          <Card className="p-4">
-            <h3 className="font-bold">-head</h3>
-            <p className="text-sm">Include headers in output</p>
-          </Card>
-          <Card className="p-4">
-            <h3 className="font-bold">-house[long],[lat],[system]</h3>
-            <p className="text-sm">Calculate house cusps (P=Placidus, K=Koch, O=Porphyrius, R=Regiomontanus, etc.)</p>
-          </Card>
-          <Card className="p-4">
-            <h3 className="font-bold">-eswe</h3>
-            <p className="text-sm">Use Swiss Ephemeris</p>
-          </Card>
-          <Card className="p-4">
-            <h3 className="font-bold">-b[date]</h3>
-            <p className="text-sm">Birth date (automatically added)</p>
-          </Card>
-        </div>
-      </div>
     </div>
   )
 }

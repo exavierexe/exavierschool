@@ -961,6 +961,14 @@ export const saveBirthChart = async (chartData: any) => {
         error: "Missing required chart data (planets or ascendant)."
       };
     }
+
+    // Helper function to safely format planet data
+    const formatPlanetData = (planet: any) => {
+      if (!planet) return null;
+      const name = planet.name || '';
+      const degree = planet.degree || 0;
+      return `${name} ${degree.toFixed(1)}°`;
+    };
     
     // Create the birth chart in the database
     const chart = await prisma.birthChart.create({
@@ -969,54 +977,22 @@ export const saveBirthChart = async (chartData: any) => {
         birthDate,
         birthTime: chartData.time || '',
         birthPlace: chartData.location || '',
-        ascendant: chartData.ascendant?.name 
-          ? `${chartData.ascendant.name} ${chartData.ascendant.degree?.toFixed(1) || 0}°`
-          : null,
-        midheaven: chartData.planets?.midheaven?.name 
-          ? `${chartData.planets.midheaven.name} ${chartData.planets.midheaven.degree?.toFixed(1) || 0}°` 
-          : null,
-        sun: chartData.planets?.sun?.name 
-          ? `${chartData.planets.sun.name} ${chartData.planets.sun.degree?.toFixed(1) || 0}°` 
-          : null,
-        moon: chartData.planets?.moon?.name 
-          ? `${chartData.planets.moon.name} ${chartData.planets.moon.degree?.toFixed(1) || 0}°` 
-          : null,
-        mercury: chartData.planets?.mercury?.name 
-          ? `${chartData.planets.mercury.name} ${chartData.planets.mercury.degree?.toFixed(1) || 0}°` 
-          : null,
-        venus: chartData.planets?.venus?.name 
-          ? `${chartData.planets.venus.name} ${chartData.planets.venus.degree?.toFixed(1) || 0}°` 
-          : null,
-        mars: chartData.planets?.mars?.name 
-          ? `${chartData.planets.mars.name} ${chartData.planets.mars.degree?.toFixed(1) || 0}°` 
-          : null,
-        jupiter: chartData.planets?.jupiter?.name 
-          ? `${chartData.planets.jupiter.name} ${chartData.planets.jupiter.degree?.toFixed(1) || 0}°` 
-          : null,
-        saturn: chartData.planets?.saturn?.name 
-          ? `${chartData.planets.saturn.name} ${chartData.planets.saturn.degree?.toFixed(1) || 0}°` 
-          : null,
-        uranus: chartData.planets?.uranus?.name 
-          ? `${chartData.planets.uranus.name} ${chartData.planets.uranus.degree?.toFixed(1) || 0}°` 
-          : null,
-        neptune: chartData.planets?.neptune?.name 
-          ? `${chartData.planets.neptune.name} ${chartData.planets.neptune.degree?.toFixed(1) || 0}°` 
-          : null,
-        pluto: chartData.planets?.pluto?.name 
-          ? `${chartData.planets.pluto.name} ${chartData.planets.pluto.degree?.toFixed(1) || 0}°` 
-          : null,
-        trueNode: chartData.planets?.trueNode?.name 
-          ? `${chartData.planets.trueNode.name} ${chartData.planets.trueNode.degree?.toFixed(1) || 0}°` 
-          : null,
-        meanNode: chartData.planets?.meanNode?.name 
-          ? `${chartData.planets.meanNode.name} ${chartData.planets.meanNode.degree?.toFixed(1) || 0}°` 
-          : null,
-        chiron: chartData.planets?.chiron?.name 
-          ? `${chartData.planets.chiron.name} ${chartData.planets.chiron.degree?.toFixed(1) || 0}°` 
-          : null,
-        lilith: chartData.planets?.meanLilith?.name 
-          ? `${chartData.planets.meanLilith.name} ${chartData.planets.meanLilith.degree?.toFixed(1) || 0}°` 
-          : null,
+        ascendant: formatPlanetData(chartData.ascendant),
+        midheaven: formatPlanetData(chartData.planets?.midheaven),
+        sun: formatPlanetData(chartData.planets?.sun),
+        moon: formatPlanetData(chartData.planets?.moon),
+        mercury: formatPlanetData(chartData.planets?.mercury),
+        venus: formatPlanetData(chartData.planets?.venus),
+        mars: formatPlanetData(chartData.planets?.mars),
+        jupiter: formatPlanetData(chartData.planets?.jupiter),
+        saturn: formatPlanetData(chartData.planets?.saturn),
+        uranus: formatPlanetData(chartData.planets?.uranus),
+        neptune: formatPlanetData(chartData.planets?.neptune),
+        pluto: formatPlanetData(chartData.planets?.pluto),
+        trueNode: formatPlanetData(chartData.planets?.trueNode),
+        meanNode: formatPlanetData(chartData.planets?.meanNode),
+        chiron: formatPlanetData(chartData.planets?.chiron),
+        lilith: formatPlanetData(chartData.planets?.meanLilith),
         houses: chartData.houses || {},
         aspects: chartData.aspects || [],
         userId: chartData.userId || null,
