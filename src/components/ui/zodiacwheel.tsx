@@ -294,10 +294,10 @@ export function ZodiacWheel({
     
     console.log('Chart data planets:', chartData.planets);
     
-    // Filter valid planets with longitude data and exclude mean node
+    // Filter valid planets with longitude data
     const planetEntries = Object.entries(chartData.planets)
       .filter(([name, planet]) => {
-        const isValid = planet && typeof planet.longitude === 'number' && name !== 'meanNode';
+        const isValid = planet && typeof planet.longitude === 'number';
         if (!isValid) {
           console.log(`Filtered out planet ${name}:`, planet);
         }
@@ -340,13 +340,19 @@ export function ZodiacWheel({
     // Group planets by house
     const planetsByHouse: Record<number, Array<{name: string, planet: Planet}>> = {};
     
-    for (const [name, planet] of planetEntries) {
-      const houseIndex = getHouseForLongitude(planet.longitude);
-      if (!planetsByHouse[houseIndex]) {
-        planetsByHouse[houseIndex] = [];
+    // Process each planet
+    planetEntries.forEach(([name, planet]) => {
+      const longitude = planet.longitude;
+      const signIndex = Math.floor(longitude / 30) % 12;
+      const houseIndex = SOUTH_INDIAN_CHART_ORDER.indexOf(signIndex);
+      
+      if (houseIndex >= 0) {
+        if (!planetsByHouse[houseIndex]) {
+          planetsByHouse[houseIndex] = [];
+        }
+        planetsByHouse[houseIndex].push({ name, planet });
       }
-      planetsByHouse[houseIndex].push({name, planet});
-    }
+    });
     
     // Draw planets in each house
     for (const [houseIndexStr, planets] of Object.entries(planetsByHouse)) {

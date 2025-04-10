@@ -975,15 +975,31 @@ export const saveBirthChart = async (chartData: any) => {
       
       if (typeof planet === 'object') {
         name = planet.name || planet.sign || '';
-        degree = planet.degree !== undefined ? Number(planet.degree) : 
-                planet.position !== undefined ? Number(planet.position) : 0;
+        // Handle different degree formats
+        if (typeof planet.degree === 'number') {
+          degree = planet.degree;
+        } else if (typeof planet.position === 'number') {
+          degree = planet.position;
+        } else if (typeof planet.longitude === 'number') {
+          degree = planet.longitude % 30; // Convert longitude to degree within sign
+        }
+      } else if (typeof planet === 'string') {
+        // Try to parse string format like "Aries 15.5°"
+        const match = planet.match(/(\w+)\s+(\d+\.?\d*)°?/);
+        if (match) {
+          name = match[1];
+          degree = parseFloat(match[2]);
+        }
       }
       
       // Ensure we have valid numbers
       degree = isNaN(degree) ? 0 : degree;
       
-      console.log('Formatted result:', `${name} ${degree.toFixed(1)}°`);
-      return `${name} ${degree.toFixed(1)}°`;
+      // Round to 1 decimal place for display
+      const roundedDegree = Math.round(degree * 10) / 10;
+      
+      console.log('Formatted result:', `${name} ${roundedDegree}°`);
+      return `${name} ${roundedDegree}°`;
     };
     
     // Create the birth chart in the database

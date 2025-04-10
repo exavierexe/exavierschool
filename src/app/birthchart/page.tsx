@@ -928,7 +928,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       if (savedChart.pluto) planets.pluto = parsePosition(savedChart.pluto);
       if (savedChart.northnode) planets.northnode = parsePosition(savedChart.northnode);
       if (savedChart.southnode) planets.southnode = parsePosition(savedChart.southnode);
-      if (savedChart.lilith) planets.southnode = parsePosition(savedChart.lilith);
+      if (savedChart.lilith) planets.lilith = parsePosition(savedChart.lilith);
 
       
      
