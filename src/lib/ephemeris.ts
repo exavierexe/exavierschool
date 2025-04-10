@@ -1092,50 +1092,9 @@ export async function calculateBirthChart(
       }
     }
     
-    // Calculate mean nodes (ephemeris.js doesn't provide them directly)
-    // Approximation based on standard formulas
-    const T = (julDay - 2451545.0) / 36525; // Julian centuries since J2000.0
-    const meanNodeLongitude = 125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000;
-    // Normalize to 0-360 range
-    const normalizedNodeLong = ((meanNodeLongitude % 360) + 360) % 360;
     
-    // Mean Node
-    const meanNodeSignIndex = Math.floor(normalizedNodeLong / 30) % 12;
-    const meanNodeDegree = normalizedNodeLong % 30;
     
-    planets.meanNode = {
-      name: ZODIAC_SIGNS[meanNodeSignIndex],
-      symbol: ZODIAC_SYMBOLS[meanNodeSignIndex],
-      longitude: normalizedNodeLong,
-      degree: meanNodeDegree
-    };
-    
-    // For this implementation, true node is same as mean node
-    planets.trueNode = planets.meanNode;
-    
-    // South Node (always opposite True Node)
-    const southNodeLong = (normalizedNodeLong + 180) % 360;
-    const southNodeSignIndex = Math.floor(southNodeLong / 30);
-    const southNodeDegree = southNodeLong % 30;
-    
-    planets.southNode = {
-      name: ZODIAC_SIGNS[southNodeSignIndex],
-      symbol: ZODIAC_SYMBOLS[southNodeSignIndex],
-      longitude: southNodeLong,
-      degree: southNodeDegree
-    };
-    
-    // Mean Lilith (Black Moon) - approximate calculation
-    const lilithLongitude = (normalizedNodeLong + 90) % 360; // Simple approximation
-    const lilithSignIndex = Math.floor(lilithLongitude / 30) % 12;
-    const lilithDegree = lilithLongitude % 30;
-    
-    planets.meanLilith = {
-      name: ZODIAC_SIGNS[lilithSignIndex],
-      symbol: ZODIAC_SYMBOLS[lilithSignIndex],
-      longitude: lilithLongitude,
-      degree: lilithDegree
-    };
+   
     
     // Calculate ascendant (RAMC + 90 degrees adjusted for latitude)
     // This is a simplified formula

@@ -65,12 +65,8 @@ function parseSwissEphOutput(output: string): ChartData {
     'Neptune': 'neptune',
     'Pluto': 'pluto',
     'North Node': 'northnode',
-    'True Node': 'trueNode',
-    'South Node': 'southnode',
-    'Node': 'meanNode',            // Alternative name
+    'South Node': 'southnode',           
     'Lilith': 'lilith',
-    'osc. Lilith': 'oscLilith',    // Oscillating Lilith
-          // Alternative name
     'Chiron': 'chiron',
     'Ceres': 'ceres',
     'Pallas': 'pallas',
@@ -397,48 +393,7 @@ function parseSwissEphOutput(output: string): ChartData {
     }
   }
   
-  // If no planets were found or critical planets are missing, create them for a valid chart
-  const requiredPlanets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'midheaven'];
-  let missingPlanets = requiredPlanets.filter(planet => !planets[planet]);
-  
-  if (missingPlanets.length > 0) {
-    console.log(`Missing required planets: ${missingPlanets.join(', ')}. Adding placeholders.`);
-    
-    // Add default positions for missing planets
-    if (!planets.sun) planets.sun = { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 };
-    if (!planets.moon) planets.moon = { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 };
-    if (!planets.mercury) planets.mercury = { name: 'Gemini', symbol: '♊', longitude: 75, degree: 15 };
-    if (!planets.venus) planets.venus = { name: 'Cancer', symbol: '♋', longitude: 105, degree: 15 };
-    if (!planets.mars) planets.mars = { name: 'Leo', symbol: '♌', longitude: 135, degree: 15 };
-    if (!planets.jupiter) planets.jupiter = { name: 'Virgo', symbol: '♍', longitude: 165, degree: 15 };
-    if (!planets.saturn) planets.saturn = { name: 'Libra', symbol: '♎', longitude: 195, degree: 15 };
-    if (!planets.uranus) planets.uranus = { name: 'Scorpio', symbol: '♏', longitude: 225, degree: 15 };
-    if (!planets.neptune) planets.neptune = { name: 'Sagittarius', symbol: '♐', longitude: 255, degree: 15 };
-    if (!planets.pluto) planets.pluto = { name: 'Capricorn', symbol: '♑', longitude: 285, degree: 15 };
-    if (!planets.trueNode) planets.trueNode = { name: 'Cancer', symbol: '☊', longitude: 105, degree: 15 };
-    if (!planets.midheaven) planets.midheaven = { name: 'Pisces', symbol: '♓', longitude: 350, degree: 20 };
-    
-    // Use sun for ascendant if not found
-    if (!ascendant || ascendant.longitude === 0) {
-      ascendant = planets.sun;
-    }
-  }
-  
-  // Add south node based on true node
-  if (planets.trueNode && !planets.southNode) {
-    const trueNodeLong = planets.trueNode.longitude;
-    const southNodeLong = (trueNodeLong + 180) % 360;
-    const southNodeSignIndex = Math.floor(southNodeLong / 30);
-    const southNodeDegree = southNodeLong % 30;
-    
-    planets.southNode = {
-      name: ZODIAC_SIGNS[southNodeSignIndex],
-      symbol: '☋',
-      longitude: southNodeLong,
-      degree: southNodeDegree
-    };
-  }
-  
+ 
   // Create default houses if none were found
   if (Object.keys(houses).length === 0) {
     for (let i = 1; i <= 12; i++) {
@@ -887,32 +842,16 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
             id: chartToLoad.id,
           };
           
-          // Calculate South Node from True Node if available
-          if (convertedChart.planets.trueNode) {
-            const trueNodeLong = convertedChart.planets.trueNode.longitude;
-            const southNodeLong = (trueNodeLong + 180) % 360;
-            const southNodeSignIndex = Math.floor(southNodeLong / 30);
-            const southNodeDegree = southNodeLong % 30;
-            
-            convertedChart.planets.southNode = {
-              name: ZODIAC_SIGNS[southNodeSignIndex],
-              symbol: ZODIAC_SYMBOLS[southNodeSignIndex],
-              longitude: southNodeLong,
-              degree: southNodeDegree
-            };
-          }
-          
-          // Set chart data and show the chart
+          // Set the chart data
           setChartData(convertedChart);
-          setShowChart(true);
-        }
-        
-        // If no chart was loaded but we have a date and time, show the current chart
-        if (!chartToLoad && !date && !time) {
-          // Get the current date and time
-          const now = new Date();
-          setDate(`${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`);
-          setTime(now.toLocaleTimeString());
+          
+          // If no chart was loaded but we have a date and time, show the current chart
+          if (!chartToLoad && !date && !time) {
+            // Get the current date and time
+            const now = new Date();
+            setDate(`${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`);
+            setTime(now.toLocaleTimeString());
+          }
         }
       } catch (error) {
         console.error('Error loading initial chart:', error);
@@ -920,7 +859,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         setLoadingStoredChart(false);
         setInitialLoadDone(true);
       }
-    };
+    }
     
     loadInitialChart();
   }, [chartIdFromUrl, isLoaded, isSignedIn, user, initialLoadDone, date, time]);
@@ -987,25 +926,12 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       if (savedChart.uranus) planets.uranus = parsePosition(savedChart.uranus);
       if (savedChart.neptune) planets.neptune = parsePosition(savedChart.neptune);
       if (savedChart.pluto) planets.pluto = parsePosition(savedChart.pluto);
+      if (savedChart.northnode) planets.northnode = parsePosition(savedChart.northnode);
+      if (savedChart.southnode) planets.southnode = parsePosition(savedChart.southnode);
+      if (savedChart.lilith) planets.southnode = parsePosition(savedChart.lilith);
+
       
-      // Add true node (North Node)
-      const trueNodePos = parsePosition(savedChart.trueNode);
-      if (trueNodePos) {
-        planets.trueNode = trueNodePos;
-        
-        // Calculate South Node (always 180° opposite to True Node)
-        const southNodeLongitude = (trueNodePos.longitude + 180) % 360;
-        const southNodeSignIndex = Math.floor(southNodeLongitude / 30);
-        const southNodeDegree = southNodeLongitude % 30;
-        
-        planets.southNode = {
-          name: ZODIAC_SIGNS[southNodeSignIndex],
-          symbol: ZODIAC_SYMBOLS[southNodeSignIndex],
-          longitude: southNodeLongitude,
-          degree: southNodeDegree
-        };
-      }
-      
+     
       // Parse ascendant
       const ascendant = parsePosition(savedChart.ascendant) || { 
         name: 'Unknown', symbol: ZODIAC_SYMBOLS[0], longitude: 0, degree: 0 

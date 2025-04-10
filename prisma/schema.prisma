@@ -47,10 +47,10 @@ model BirthChart {
   uranus      String?
   neptune     String?
   pluto       String?
-  trueNode    String?  // True North Node
-  meanNode    String?  // Mean North Node
-  chiron      String?  // Chiron
-  lilith      String?  // Black Moon Lilith
+  northnode   String?  
+  southnode   String?  
+  chiron      String?  
+  lilith      String?  
   houses      Json?
   aspects     Json?
   notes       String?

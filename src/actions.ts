@@ -965,8 +965,24 @@ export const saveBirthChart = async (chartData: any) => {
     // Helper function to safely format planet data
     const formatPlanetData = (planet: any) => {
       if (!planet) return null;
-      const name = planet.name || '';
-      const degree = planet.degree || 0;
+      
+      // Debug logging
+      console.log('Formatting planet data:', planet);
+      
+      // Handle both direct degree values and nested structures
+      let name = '';
+      let degree = 0;
+      
+      if (typeof planet === 'object') {
+        name = planet.name || planet.sign || '';
+        degree = planet.degree !== undefined ? Number(planet.degree) : 
+                planet.position !== undefined ? Number(planet.position) : 0;
+      }
+      
+      // Ensure we have valid numbers
+      degree = isNaN(degree) ? 0 : degree;
+      
+      console.log('Formatted result:', `${name} ${degree.toFixed(1)}°`);
       return `${name} ${degree.toFixed(1)}°`;
     };
     
@@ -989,10 +1005,10 @@ export const saveBirthChart = async (chartData: any) => {
         uranus: formatPlanetData(chartData.planets?.uranus),
         neptune: formatPlanetData(chartData.planets?.neptune),
         pluto: formatPlanetData(chartData.planets?.pluto),
-        trueNode: formatPlanetData(chartData.planets?.trueNode),
-        meanNode: formatPlanetData(chartData.planets?.meanNode),
+        northnode: formatPlanetData(chartData.points?.northnode) || formatPlanetData(chartData.planets?.northnode) || null,
+        southnode: formatPlanetData(chartData.points?.southnode) || formatPlanetData(chartData.planets?.southnode) || null,
         chiron: formatPlanetData(chartData.planets?.chiron),
-        lilith: formatPlanetData(chartData.planets?.meanLilith),
+        lilith: formatPlanetData(chartData.planets?.lilith),
         houses: chartData.houses || {},
         aspects: chartData.aspects || [],
         userId: chartData.userId || null,
@@ -1143,9 +1159,9 @@ function parseSwissEphOutput(output: string, location: any) {
     'Uranus': 'uranus',
     'Neptune': 'neptune',
     'Pluto': 'pluto',
-    'Mean Node': 'meanNode',
-    'True Node': 'trueNode',
-    'Mean Lilith': 'meanLilith',
+    'North Node': 'northnode',
+    'South Node': 'southnode',
+    'Lilith': 'lilith',
     'Ascendant': 'ascendant',
     'Midheaven': 'midheaven'
   };
