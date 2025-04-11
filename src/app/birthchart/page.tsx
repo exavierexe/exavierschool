@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { querySwissEph, saveBirthChart, getBirthChartById, getDefaultChart } from '../../actions'
 import { ZodiacWheel, type ChartData, exportChartAsImage } from '@/components/ui/zodiacwheel'
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator'
-import { SignedIn, SignedOut } from '@clerk/nextjs'
+import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
 import { currentUser } from '@clerk/nextjs/server'
 
 // Helper function to parse JavaScript Ephemeris output into chart data
@@ -444,6 +444,10 @@ function getZodiacSymbol(signIndex: number): string {
   return ZODIAC_SYMBOLS[signIndex] || '?';
 }
 
+function SavedChartsSection({ user, onSelectChart }: { user: any, onSelectChart: (chartId: number) => void }) {
+  return <SavedBirthCharts userId={parseInt(user.id)} onSelectChart={onSelectChart} />;
+}
+
 function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) {
   const { isLoaded, isSignedIn, user } = useUser();
   
@@ -717,14 +721,6 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         return;
       }
 
-      if (!isSignedIn || !user) {
-        setSaveResult({
-          success: false,
-          error: "You must be logged in to save a chart. Please sign in and try again."
-        });
-        return;
-      }
-
       setSavingChart(true);
       setSaveResult(null);
       
@@ -775,13 +771,6 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       if (chartIdFromUrl) {
         try {
           setLoadingStoredChart(true);
-          if (!isSignedIn || !user) {
-            setSaveResult({
-              success: false,
-              error: "You must be logged in to view saved charts."
-            });
-            return;
-          }
 
           // Fetch the chart with user ID
           const chartToLoad = await getBirthChartById(parseInt(chartIdFromUrl), parseInt(user.id));
@@ -882,19 +871,11 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
     };
 
     loadInitialChart();
-  }, [chartIdFromUrl, isLoaded, isSignedIn, user]);
+  }, [chartIdFromUrl, isLoaded, user]);
   
   // Handler for selecting a saved chart
   const handleSelectChart = async (chartId: number) => {
     try {
-      if (!isSignedIn || !user) {
-        setSaveResult({
-          success: false,
-          error: "You must be logged in to view saved charts."
-        });
-        return;
-      }
-
       setLoadingStoredChart(true);
       setSelectedChartId(chartId);
       setSaveResult(null); // Clear any previous save results
@@ -1080,13 +1061,14 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
           
           {/* Saved Charts Section */}
           <div className="mt-8">
-            {isSignedIn ? (
-              <SavedBirthCharts userId={parseInt(user.id)} onSelectChart={handleSelectChart} />
-            ) : (
+            <SignedIn>
+              <SavedChartsSection user={user} onSelectChart={handleSelectChart} />
+            </SignedIn>
+            <SignedOut>
               <Card className="p-6 text-center">
                 <p className="text-gray-400">Please log in to view and save your birth charts.</p>
               </Card>
-            )}
+            </SignedOut>
           </div>
         </div>
         
@@ -1151,82 +1133,161 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                   )}
                   
                   <div className="flex justify-center">
-                    <ZodiacWheel 
-                      chartData={chartData || {
-                        planets: (() => {
-                          // Combine planet and point data
-                          const combinedData: Record<string, any> = {};
-                          
-                          // Add planet data if available
-                          if (Object.keys(planetData).length > 0) {
-                            Object.entries(planetData).forEach(([key, value]) => {
-                              combinedData[key] = value;
-                            });
-                          }
-                          
-                          // Add point data if available
-                          if (Object.keys(pointData).length > 0) {
-                            Object.entries(pointData).forEach(([key, value]) => {
-                              combinedData[key] = value;
-                            });
-                          }
-                          
-                          // Return combined data or defaults if empty
-                          return Object.keys(combinedData).length > 0 ? combinedData : {
-                            sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 },
-                            moon: { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 },
-                            mercury: { name: 'Gemini', symbol: '♊', longitude: 75, degree: 15 },
-                          };
-                        })(),
-                        houses: Object.keys(houseData).length > 0 ? 
-                          // Convert house format to match what ZodiacWheel expects
-                          Object.entries(houseData)
-                            .filter(([key]) => key.startsWith('House '))
-                            .reduce((acc, [key, value]) => {
-                              const houseNum = parseInt(key.replace('House ', ''));
-                              if (!isNaN(houseNum) && houseNum >= 1 && houseNum <= 12) {
-                                const houseKey = `house${houseNum}`;
-                                acc[houseKey] = {
-                                  cusp: (value as any).longitude,
-                                  name: (value as any).sign,
-                                  symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf((value as any).sign)),
-                                  degree: (value as any).degree,
-                                  longitude: (value as any).longitude
-                                };
-                              }
-                              return acc;
-                            }, {} as Record<string, any>) : 
-                          // Default houses if none provided
-                          {
-                            house1: { cusp: 0, name: 'Aries', symbol: '♈', degree: 0 },
-                            house2: { cusp: 30, name: 'Taurus', symbol: '♉', degree: 0 },
-                            house3: { cusp: 60, name: 'Gemini', symbol: '♊', degree: 0 },
-                            house4: { cusp: 90, name: 'Cancer', symbol: '♋', degree: 0 },
-                            house5: { cusp: 120, name: 'Leo', symbol: '♌', degree: 0 },
-                            house6: { cusp: 150, name: 'Virgo', symbol: '♍', degree: 0 },
-                            house7: { cusp: 180, name: 'Libra', symbol: '♎', degree: 0 },
-                            house8: { cusp: 210, name: 'Scorpio', symbol: '♏', degree: 0 },
-                            house9: { cusp: 240, name: 'Sagittarius', symbol: '♐', degree: 0 },
-                            house10: { cusp: 270, name: 'Capricorn', symbol: '♑', degree: 0 },
-                            house11: { cusp: 300, name: 'Aquarius', symbol: '♒', degree: 0 },
-                            house12: { cusp: 330, name: 'Pisces', symbol: '♓', degree: 0 },
-                          },
-                        ascendant: houseData['Ascendant'] ? {
-                          name: houseData['Ascendant'].sign,
-                          symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData['Ascendant'].sign)),
-                          longitude: houseData['Ascendant'].longitude,
-                          degree: houseData['Ascendant'].degree
-                        } : { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
-                        date: date,
-                        time: time,
-                        location: location,
-                        title: `Birth Chart - ${date}`,
-                      } as ChartData} 
-                      width={600} 
-                      height={600}
-                      onSaveChart={isSignedIn ? handleSaveChart : undefined}
-                      onTitleChange={handleTitleChange}
-                    />
+                    <SignedIn>
+                      <ZodiacWheel 
+                        chartData={chartData || {
+                          planets: (() => {
+                            // Combine planet and point data
+                            const combinedData: Record<string, any> = {};
+                            
+                            // Add planet data if available
+                            if (Object.keys(planetData).length > 0) {
+                              Object.entries(planetData).forEach(([key, value]) => {
+                                combinedData[key] = value;
+                              });
+                            }
+                            
+                            // Add point data if available
+                            if (Object.keys(pointData).length > 0) {
+                              Object.entries(pointData).forEach(([key, value]) => {
+                                combinedData[key] = value;
+                              });
+                            }
+                            
+                            // Return combined data or defaults if empty
+                            return Object.keys(combinedData).length > 0 ? combinedData : {
+                              sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 },
+                              moon: { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 },
+                              mercury: { name: 'Gemini', symbol: '♊', longitude: 75, degree: 15 },
+                            };
+                          })(),
+                          houses: Object.keys(houseData).length > 0 ? 
+                            // Convert house format to match what ZodiacWheel expects
+                            Object.entries(houseData)
+                              .filter(([key]) => key.startsWith('House '))
+                              .reduce((acc, [key, value]) => {
+                                const houseNum = parseInt(key.replace('House ', ''));
+                                if (!isNaN(houseNum) && houseNum >= 1 && houseNum <= 12) {
+                                  const houseKey = `house${houseNum}`;
+                                  acc[houseKey] = {
+                                    cusp: (value as any).longitude,
+                                    name: (value as any).sign,
+                                    symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf((value as any).sign)),
+                                    degree: (value as any).degree,
+                                    longitude: (value as any).longitude
+                                  };
+                                }
+                                return acc;
+                              }, {} as Record<string, any>) : 
+                            // Default houses if none provided
+                            {
+                              house1: { cusp: 0, name: 'Aries', symbol: '♈', degree: 0 },
+                              house2: { cusp: 30, name: 'Taurus', symbol: '♉', degree: 0 },
+                              house3: { cusp: 60, name: 'Gemini', symbol: '♊', degree: 0 },
+                              house4: { cusp: 90, name: 'Cancer', symbol: '♋', degree: 0 },
+                              house5: { cusp: 120, name: 'Leo', symbol: '♌', degree: 0 },
+                              house6: { cusp: 150, name: 'Virgo', symbol: '♍', degree: 0 },
+                              house7: { cusp: 180, name: 'Libra', symbol: '♎', degree: 0 },
+                              house8: { cusp: 210, name: 'Scorpio', symbol: '♏', degree: 0 },
+                              house9: { cusp: 240, name: 'Sagittarius', symbol: '♐', degree: 0 },
+                              house10: { cusp: 270, name: 'Capricorn', symbol: '♑', degree: 0 },
+                              house11: { cusp: 300, name: 'Aquarius', symbol: '♒', degree: 0 },
+                              house12: { cusp: 330, name: 'Pisces', symbol: '♓', degree: 0 },
+                            },
+                          ascendant: houseData['Ascendant'] ? {
+                            name: houseData['Ascendant'].sign,
+                            symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData['Ascendant'].sign)),
+                            longitude: houseData['Ascendant'].longitude,
+                            degree: houseData['Ascendant'].degree
+                          } : { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
+                          date: date,
+                          time: time,
+                          location: location,
+                          title: `Birth Chart - ${date}`,
+                        } as ChartData} 
+                        width={600} 
+                        height={600}
+                        onSaveChart={handleSaveChart}
+                        onTitleChange={handleTitleChange}
+                      />
+                    </SignedIn>
+                    <SignedOut>
+                      <ZodiacWheel 
+                        chartData={chartData || {
+                          planets: (() => {
+                            // Combine planet and point data
+                            const combinedData: Record<string, any> = {};
+                            
+                            // Add planet data if available
+                            if (Object.keys(planetData).length > 0) {
+                              Object.entries(planetData).forEach(([key, value]) => {
+                                combinedData[key] = value;
+                              });
+                            }
+                            
+                            // Add point data if available
+                            if (Object.keys(pointData).length > 0) {
+                              Object.entries(pointData).forEach(([key, value]) => {
+                                combinedData[key] = value;
+                              });
+                            }
+                            
+                            // Return combined data or defaults if empty
+                            return Object.keys(combinedData).length > 0 ? combinedData : {
+                              sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 },
+                              moon: { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 },
+                              mercury: { name: 'Gemini', symbol: '♊', longitude: 75, degree: 15 },
+                            };
+                          })(),
+                          houses: Object.keys(houseData).length > 0 ? 
+                            // Convert house format to match what ZodiacWheel expects
+                            Object.entries(houseData)
+                              .filter(([key]) => key.startsWith('House '))
+                              .reduce((acc, [key, value]) => {
+                                const houseNum = parseInt(key.replace('House ', ''));
+                                if (!isNaN(houseNum) && houseNum >= 1 && houseNum <= 12) {
+                                  const houseKey = `house${houseNum}`;
+                                  acc[houseKey] = {
+                                    cusp: (value as any).longitude,
+                                    name: (value as any).sign,
+                                    symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf((value as any).sign)),
+                                    degree: (value as any).degree,
+                                    longitude: (value as any).longitude
+                                  };
+                                }
+                                return acc;
+                              }, {} as Record<string, any>) : 
+                            // Default houses if none provided
+                            {
+                              house1: { cusp: 0, name: 'Aries', symbol: '♈', degree: 0 },
+                              house2: { cusp: 30, name: 'Taurus', symbol: '♉', degree: 0 },
+                              house3: { cusp: 60, name: 'Gemini', symbol: '♊', degree: 0 },
+                              house4: { cusp: 90, name: 'Cancer', symbol: '♋', degree: 0 },
+                              house5: { cusp: 120, name: 'Leo', symbol: '♌', degree: 0 },
+                              house6: { cusp: 150, name: 'Virgo', symbol: '♍', degree: 0 },
+                              house7: { cusp: 180, name: 'Libra', symbol: '♎', degree: 0 },
+                              house8: { cusp: 210, name: 'Scorpio', symbol: '♏', degree: 0 },
+                              house9: { cusp: 240, name: 'Sagittarius', symbol: '♐', degree: 0 },
+                              house10: { cusp: 270, name: 'Capricorn', symbol: '♑', degree: 0 },
+                              house11: { cusp: 300, name: 'Aquarius', symbol: '♒', degree: 0 },
+                              house12: { cusp: 330, name: 'Pisces', symbol: '♓', degree: 0 },
+                            },
+                          ascendant: houseData['Ascendant'] ? {
+                            name: houseData['Ascendant'].sign,
+                            symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData['Ascendant'].sign)),
+                            longitude: houseData['Ascendant'].longitude,
+                            degree: houseData['Ascendant'].degree
+                          } : { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
+                          date: date,
+                          time: time,
+                          location: location,
+                          title: `Birth Chart - ${date}`,
+                        } as ChartData} 
+                        width={600} 
+                        height={600}
+                        onTitleChange={handleTitleChange}
+                      />
+                    </SignedOut>
                   </div>
                 </div>
               )}
