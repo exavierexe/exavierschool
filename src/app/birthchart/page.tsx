@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { querySwissEph, saveBirthChart, getBirthChartById, getDefaultChart } from '../../actions'
 import { ZodiacWheel, type ChartData, exportChartAsImage } from '@/components/ui/zodiacwheel'
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator'
+import { SignedIn, SignedOut } from '@clerk/nextjs'
+import { currentUser } from '@clerk/nextjs/server'
 
 // Helper function to parse JavaScript Ephemeris output into chart data
 function parseSwissEphOutput(output: string): ChartData {
@@ -707,22 +709,40 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   // Handler for saving the chart
   const handleSaveChart = async (updatedChartData: ChartData) => {
     try {
-      if (!isSignedIn || !user) {
+      if (!isLoaded) {
         setSaveResult({
           success: false,
-          error: "You must be logged in to save a chart."
+          error: "Authentication is still loading. Please wait."
         });
         return;
       }
 
-      setSavingChart(true)
-      setSaveResult(null)
+      if (!isSignedIn || !user) {
+        setSaveResult({
+          success: false,
+          error: "You must be logged in to save a chart. Please sign in and try again."
+        });
+        return;
+      }
+
+      // Validate user ID
+      const userId = parseInt(user.id);
+      if (isNaN(userId)) {
+        setSaveResult({
+          success: false,
+          error: "Invalid user ID. Please sign out and sign in again."
+        });
+        return;
+      }
+
+      setSavingChart(true);
+      setSaveResult(null);
       
       // Call the saveBirthChart server action with user ID
-      const result = await saveBirthChart(updatedChartData, parseInt(user.id))
+      const result = await saveBirthChart(updatedChartData, userId);
       
       // Update state with the result
-      setSaveResult(result)
+      setSaveResult(result);
       
       // Update the chart data with the saved title
       if (result.success && updatedChartData.title) {
@@ -739,12 +759,12 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       console.error("Error saving chart:", error);
       setSaveResult({
         success: false,
-        error: "An unexpected error occurred while saving the chart."
+        error: "An unexpected error occurred while saving the chart. Please try again."
       });
     } finally {
-      setSavingChart(false)
+      setSavingChart(false);
     }
-  }
+  };
   
   // Handler for updating the chart title
   const handleTitleChange = (title: string) => {

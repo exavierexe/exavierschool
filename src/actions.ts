@@ -932,10 +932,23 @@ export const saveBirthChart = async (chartData: any, userId: number) => {
       };
     }
 
-    if (!userId) {
+    // Validate user ID
+    if (!userId || isNaN(userId)) {
       return {
         success: false,
-        error: "You must be logged in to save a chart."
+        error: "Invalid user ID. Please log in again."
+      };
+    }
+
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found. Please log in again."
       };
     }
     
@@ -957,7 +970,10 @@ export const saveBirthChart = async (chartData: any, userId: number) => {
         }
       } catch (error) {
         console.error("Error parsing birth date:", error);
-        // If parsing fails, keep the default date
+        return {
+          success: false,
+          error: "Invalid birth date format. Please use DD.MM.YYYY or YYYY-MM-DD format."
+        };
       }
     }
     

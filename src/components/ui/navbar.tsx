@@ -62,7 +62,7 @@ export function NavBar() {
                 <User className="mr-2 h-4 w-4" />
                 Account
               </Link>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton showName />
             </SignedIn>
             
             <SignedOut>
