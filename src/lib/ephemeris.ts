@@ -33,16 +33,33 @@ function loadCitiesData(): any[] {
   }
   
   try {
-    const csvPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
+    // Use process.cwd() for production and __dirname for development
+    const csvPath = process.env.NODE_ENV === 'production' 
+      ? path.join(process.cwd(), 'src', 'public', 'worldcities.csv')
+      : path.join(__dirname, '..', 'public', 'worldcities.csv');
+    
     let fileContent;
     
     try {
       fileContent = fs.readFileSync(csvPath, 'utf8');
     } catch (readError) {
       console.warn('Could not read cities file:', readError);
-      const emptyArray: any[] = [];
-      citiesCache = emptyArray;
-      return emptyArray;
+      // Try alternative path in production
+      if (process.env.NODE_ENV === 'production') {
+        try {
+          const altPath = path.join(process.cwd(), 'public', 'worldcities.csv');
+          fileContent = fs.readFileSync(altPath, 'utf8');
+        } catch (altError) {
+          console.warn('Could not read cities file from alternative path:', altError);
+          const emptyArray: any[] = [];
+          citiesCache = emptyArray;
+          return emptyArray;
+        }
+      } else {
+        const emptyArray: any[] = [];
+        citiesCache = emptyArray;
+        return emptyArray;
+      }
     }
     
     // Parse CSV data
@@ -77,15 +94,31 @@ function loadTimeZoneData(): Map<string, any> {
   }
   
   try {
-    const csvPath = path.join(process.cwd(), 'src', 'public', 'TimeZoneDB.csv', 'time_zone.csv');
+    // Use process.cwd() for production and __dirname for development
+    const csvPath = process.env.NODE_ENV === 'production'
+      ? path.join(process.cwd(), 'src', 'public', 'TimeZoneDB.csv', 'time_zone.csv')
+      : path.join(__dirname, '..', 'public', 'TimeZoneDB.csv', 'time_zone.csv');
+    
     let fileContent;
     
     try {
       fileContent = fs.readFileSync(csvPath, 'utf8');
     } catch (readError) {
       console.warn('Could not read timezone file:', readError);
-      timeZonesCache = timeZonesMap;
-      return timeZonesMap;
+      // Try alternative path in production
+      if (process.env.NODE_ENV === 'production') {
+        try {
+          const altPath = path.join(process.cwd(), 'public', 'TimeZoneDB.csv', 'time_zone.csv');
+          fileContent = fs.readFileSync(altPath, 'utf8');
+        } catch (altError) {
+          console.warn('Could not read timezone file from alternative path:', altError);
+          timeZonesCache = timeZonesMap;
+          return timeZonesMap;
+        }
+      } else {
+        timeZonesCache = timeZonesMap;
+        return timeZonesMap;
+      }
     }
     
     // Parse CSV data
