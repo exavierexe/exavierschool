@@ -70,6 +70,12 @@ export const syncUser = async (clerkId: string) => {
     const existingUser = await prisma.user.findFirst({
       where: {
         clerkId: clerkId
+      },
+      select: {
+        id: true,
+        clerkId: true,
+        username: true,
+        defaultChartId: true
       }
     });
 
