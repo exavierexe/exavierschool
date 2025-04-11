@@ -31,6 +31,8 @@ export default function AccountPage() {
   const [charts, setCharts] = useState<any[]>([]);
   const [defaultChartId, setDefaultChartId] = useState<number | null>(null);
   const [loadingCharts, setLoadingCharts] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Redirect if user is not signed in
   useEffect(() => {
@@ -53,17 +55,23 @@ export default function AccountPage() {
   // Add user sync effect
   useEffect(() => {
     const syncUserData = async () => {
-      if (isSignedIn && user?.id) {
-        try {
-          await syncUser(user.id);
-        } catch (error) {
-          console.error('Error syncing user:', error);
-        }
+      if (!isLoaded || !user) return;
+
+      try {
+        setIsSyncing(true);
+        setError(null);
+        await syncUser(user.id);
+        router.refresh(); // Refresh the page to show updated data
+      } catch (err) {
+        console.error('Error syncing user:', err);
+        setError('Failed to sync user data. Please try again later.');
+      } finally {
+        setIsSyncing(false);
       }
     };
 
     syncUserData();
-  }, [isSignedIn, user?.id]);
+  }, [user, isLoaded, router]);
 
   // Load user's birth charts
   useEffect(() => {
@@ -238,6 +246,18 @@ export default function AccountPage() {
             {activeTab === 'profile' && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">My Profile</h2>
+                
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    {error}
+                  </div>
+                )}
+
+                {isSyncing && (
+                  <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+                    Syncing user data...
+                  </div>
+                )}
                 
                 <form onSubmit={handleUpdateProfile} className="space-y-4">
                   <div>

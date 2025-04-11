@@ -122,7 +122,20 @@ export const addUser = async (formData: FormData) => {
     });
   };
 
-
+// Server action to sync user
+export async function syncUserAction() {
+  const user = await currentUser();
+  if (user?.id) {
+    try {
+      await syncUser(user.id);
+      return { success: true };
+    } catch (error) {
+      console.error("Error syncing user:", error);
+      return { success: false, error: "Failed to sync user" };
+    }
+  }
+  return { success: false, error: "No user found" };
+}
 
 // Tarot Reading Actions
 
