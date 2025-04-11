@@ -9,18 +9,6 @@ export default clerkMiddleware((auth, req) => {
     return;
   }
   
-  // Allow server actions and static files to work
-  if (req.nextUrl.pathname.startsWith('/_next') || 
-      req.nextUrl.pathname.startsWith('/api') ||
-      req.nextUrl.pathname.includes('actions') ||
-      req.nextUrl.pathname.endsWith('.js') ||
-      req.nextUrl.pathname.endsWith('.css') ||
-      req.nextUrl.pathname.endsWith('.png') ||
-      req.nextUrl.pathname.endsWith('.jpg') ||
-      req.nextUrl.pathname.endsWith('.svg')) {
-    return;
-  }
-  
   // Protect all other routes
   auth.protect();
 });

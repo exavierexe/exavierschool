@@ -291,79 +291,168 @@ export const querySwissEph = async (params: {
     const dateRegex = /^\d{1,2}\.\d{1,2}\.\d{4}$/;
     const timeRegex = /^\d{1,2}:\d{1,2}(:\d{1,2})?$/;
     
-    if (!dateRegex.test(date) || !timeRegex.test(time) || !location) {
-      throw new Error("Invalid input format");
+    if (!dateRegex.test(date)) {
+      return {
+        output: '',
+        error: 'Invalid date format. Please use DD.MM.YYYY format (e.g., 08.10.1995).'
+      };
     }
     
-    // Parse date and time
+    if (!timeRegex.test(time)) {
+      return {
+        output: '',
+        error: 'Invalid time format. Please use HH:MM or HH:MM:SS format (e.g., 19:56).'
+      };
+    }
+    
+    if (!location || location.trim() === '') {
+      return {
+        output: '',
+        error: 'Please enter a location (city name).'
+      };
+    }
+    
+    // Geocode the provided location
+    const geocodedLocation = await geocodeLocation(location);
+    
+    // Parse date and time with validation
     const [day, month, year] = date.split('.').map(Number);
     const [hour, minute, second = 0] = time.split(':').map(Number);
     
     // Validate time values
     if (isNaN(hour) || hour < 0 || hour > 23 || isNaN(minute) || minute < 0 || minute > 59 || isNaN(second) || second < 0 || second > 59) {
-      throw new Error("Invalid time values");
+      return {
+        output: '',
+        error: 'Invalid time value. Hours must be 0-23, minutes and seconds must be 0-59.'
+      };
     }
     
-    // Geocode location
-    const geocodedLocation = await geocodeLocation(location);
-    if (!geocodedLocation) {
-      throw new Error("Could not geocode location");
+    // Get the time zone information for the location
+    let timeZoneInfo;
+    
+    // Use the timeZone information from geocodeLocation if available
+    if (geocodedLocation.timeZone) {
+      console.log(`Using TimeZoneDB data: ${geocodedLocation.timeZone.zoneName}, UTC offset: ${geocodedLocation.timeZone.utcOffset} seconds`);
+      
+      // Convert seconds to hours and minutes for display
+      const totalMinutes = geocodedLocation.timeZone.utcOffset / 60;
+      const offsetHours = Math.floor(Math.abs(totalMinutes) / 60) * (totalMinutes >= 0 ? 1 : -1);
+      const offsetMinutes = Math.abs(totalMinutes) % 60;
+      
+      // Format timezone name with sign
+      const tzSignA = totalMinutes >= 0 ? '+' : '-';
+      const formattedHours = Math.abs(offsetHours).toString().padStart(2, '0');
+      const formattedMinutes = Math.abs(offsetMinutes).toString().padStart(2, '0');
+      console.log(tzSignA)
+      console.log(formattedHours)
+      console.log(formattedMinutes)
+      
+      timeZoneInfo = {
+        name: `${geocodedLocation.timeZone.zoneName} (UTC${tzSignA}${formattedHours}:${formattedMinutes})`,
+        offsetHours,
+        offsetMinutes: offsetMinutes * (totalMinutes >= 0 ? 1 : -1),
+        totalOffsetMinutes: totalMinutes
+        
+      };
+      
+    } else {
+      // Fall back to the longitude-based method
+      timeZoneInfo = await determineTimeZone(geocodedLocation.longitude, geocodedLocation.latitude);
     }
     
-    // Format date components
-    const formattedYear = year.toString().padStart(4, '0');
-    const formattedMonth = month.toString().padStart(2, '0');
-    const formattedDay = day.toString().padStart(2, '0');
-    
-    // Calculate chart
-    const ascendantobj = chartascendant(
-      formattedYear,
-      formattedMonth,
-      formattedDay,
-      hour,
-      minute,
-      geocodedLocation.latitude,
-      geocodedLocation.longitude
-    );
-    
-    // Convert to chart data format
-    const chartData = convertEphemerisResultToChartData(ascendantobj, geocodedLocation);
-    
-    // Get user if available
-    let user = null;
-    try {
-      user = await currentUser();
-    } catch (error) {
-      console.log("No authenticated user, proceeding with calculation");
-    }
-    
-    // If user is logged in, save the chart
-    if (user?.id) {
-      try {
-        await saveBirthChart(chartData, user.id);
-      } catch (error) {
-        console.error("Error saving chart:", error);
-        // Continue even if saving fails
-      }
-    }
-    
-    return chartData;
-  } catch (error) {
-    console.error("Error in querySwissEph:", error);
-    throw error;
-  }
-};
+    console.log(`Time zone: ${timeZoneInfo.name}, offset: ${timeZoneInfo.offsetHours}:${Math.abs(timeZoneInfo.offsetMinutes).toString().padStart(2, '0')}`);
+    console.log(hour)
+    console.log(minute)
+    // Get the timezone offset in hours and minutes for display
+    let totalOffsetMinutes = 0;
+    let offsetHours = 0;
+    let offsetMinutes = 0;
 
-// Birth Chart Calculator Actions
-
-/**
- * Converts raw ephemeris.js result to chart data format
- * This function takes the raw output from ephemeris.js and converts it to our ChartData format
- */
-
+    if (geocodedLocation.timeZone && geocodedLocation.timeZone.utcOffset) {
+      totalOffsetMinutes = geocodedLocation.timeZone.utcOffset / 60;
+      offsetHours = Math.floor(Math.abs(totalOffsetMinutes) / 60) * (totalOffsetMinutes >= 0 ? 1 : -1);
+      offsetMinutes = Math.abs(totalOffsetMinutes) % 60;
+    } else {
+      // Fallback to longitude-based calculation
+      const approxOffsetHours = Math.round(geocodedLocation.longitude / 15);
+      totalOffsetMinutes = approxOffsetHours * 60;
+      offsetHours = approxOffsetHours;
+      offsetMinutes = 0;
+    }
     
-function convertEphemerisResultToChartData(ascendantobj: any, geocodedLocation: any) {
-    // Calculate positions for the main planets
+    // Format timezone values for display
+    const tzSignA = totalOffsetMinutes >= 0 ? '+' : '-';
+    const formattedHours = Math.abs(offsetHours).toString().padStart(2, '0');
+    const formattedMinutes = Math.abs(offsetMinutes).toString().padStart(2, '0');
+    
+    // Create a Date object with the local birth time (not UTC)
+    // The ephemeris.js library expects a Date object with the birth time in local time
+    // When we pass this Date object to the ephemeris library alongside the longitude/latitude
+    // the library will handle the astronomical calculations correctly
+    console.log("start")
+    console.log(tzSignA)
+    console.log(formattedHours)
+    console.log(formattedMinutes)
+    const formattedDay = day.toString().padStart(2, '0')
+    const formattedMonth = month.toString().padStart(2, '0')
+    const formattedYear = year.toString().padStart(4, '0')
+    const formattedHour = hour.toString().padStart(2, '0')
+    const formattedMinute = minute.toString().padStart(2, '0')
+    
+    console.log("formatted date")
+    console.log(formattedYear)
+    console.log(formattedMonth)
+    console.log(formattedDay)
+    
+    const dateObj = new Date(`${formattedYear}-${formattedMonth}-${formattedDay}T${formattedHour}:${formattedMinute}:00${tzSignA}${formattedHours}:${formattedMinutes}`);
+    const dateObj2 = new Date(`1995-09-08T19:05:00-4:00`)
+    
+    console.log(dateObj)
+    console.log(dateObj2)
+    console.log(`${formattedYear}`+"-"+`${formattedMonth}`+"-"+`${formattedDay}`+"T"+`${hour}`+":"+`${minute}`+":00"+`${tzSignA}`+`${formattedHours}`+":"+`${formattedMinutes}`)
+    console.log(`${year}`+"-"+`${month}`+"-"+`${day}`+"T"+`${hour}`+":"+`${minute}`+":00"+`${tzSignA}`+`${formattedHours}`+":"+`${formattedMinutes}`)
+    
+    console.log(hour)
+    console.log(minute)
+    console.log(timeZoneInfo.offsetHours)
+    
+    // Store the timezone offset information separately to pass to the ephemeris calculation
+    const timeZoneOffsetSeconds = geocodedLocation.timeZone.utcOffset;
+    
+    console.log(`Input local time: ${year}-${month}-${day} ${hour}:${minute}:${second}`);
+    console.log(`Timezone offset: ${offsetHours} hours, ${offsetMinutes} minutes (${totalOffsetMinutes} minutes total)`);
+    console.log(`Timezone offset in seconds: ${timeZoneOffsetSeconds}`);
+    console.log(`Parsed Date object (local time): ${dateObj.toString()}`);
+    console.log(`UTC representation: ${dateObj.toUTCString()}`);
+    
+    // Use our robust wrapper for ephemeris calculations in serverless environments
+    // This will automatically handle fallbacks if the module isn't available
+    // For server components/actions, we use the server-side implementation
+    // const ephemerisJs = require('./lib/server-ephemeris');
+    console.log(hour)
+    console.log(minute)
+    
+    const ascendantobj = chartascendant(formattedYear, formattedMonth, formattedDay, hour, minute, geocodedLocation.latitude, geocodedLocation.longitude)
+    const ascendantdegree = ascendantobj.ascdegree
+    const ascendantsign = ascendantobj.ascsign
+    const ascendantdecimal = ascendantobj.decimaldegree
+    const bodies1 = ascendantobj.bodies
+    const points1 = ascendantobj.points
+    const midheaven1 = ascendantobj.midheaven
+    // *** THIS IS THE DATEOBJ FROM LINE 298 THAT SHOULD BE USED FOR ALL CHART CALCULATIONS ***
+    
+    // Calculate the positions using ephemeris.js with dateObj from line 298
+    // The original dateObj is passed directly without any manipulation
+    console.log("calculation")
+    console.log(dateObj)
+    console.log(ascendantdegree)
+    console.log(ascendantdecimal)
+    console.log(bodies1)
+    console.log(points1)
+    console.log(midheaven1)
+  
+    console.log(bodies1.sun.ChartPosition)
+
     const planetData: any = {};
 
         // The zodiac signs array
