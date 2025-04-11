@@ -707,11 +707,19 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   // Handler for saving the chart
   const handleSaveChart = async (updatedChartData: ChartData) => {
     try {
+      if (!isSignedIn || !user) {
+        setSaveResult({
+          success: false,
+          error: "You must be logged in to save a chart."
+        });
+        return;
+      }
+
       setSavingChart(true)
       setSaveResult(null)
       
-      // Call the saveBirthChart server action
-      const result = await saveBirthChart(updatedChartData)
+      // Call the saveBirthChart server action with user ID
+      const result = await saveBirthChart(updatedChartData, parseInt(user.id))
       
       // Update state with the result
       setSaveResult(result)
@@ -752,34 +760,30 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   // Load user's default chart or URL-specified chart on component mount
   useEffect(() => {
     const loadInitialChart = async () => {
-      if (initialLoadDone || !isLoaded) return;
-      
-      try {
-        setLoadingStoredChart(true);
-        
-        let chartToLoad = null;
-        
-        // If there's a chart ID in the URL, try to load that chart
-        if (chartIdFromUrl) {
-          const chartId = parseInt(chartIdFromUrl);
-          if (!isNaN(chartId)) {
-            chartToLoad = await getBirthChartById(chartId);
-            setSelectedChartId(chartId);
+      if (!isLoaded) return;
+
+      if (chartIdFromUrl) {
+        try {
+          setLoadingStoredChart(true);
+          if (!isSignedIn || !user) {
+            setSaveResult({
+              success: false,
+              error: "You must be logged in to view saved charts."
+            });
+            return;
           }
-        } 
-        // Otherwise, if the user is signed in, try to load their default chart
-        else if (isSignedIn && user) {
-          const userId = parseInt(user.id);
-          if (!isNaN(userId)) {
-            chartToLoad = await getDefaultChart(userId);
-            if (chartToLoad) {
-              setSelectedChartId(chartToLoad.id);
-            }
+
+          // Fetch the chart with user ID
+          const chartToLoad = await getBirthChartById(parseInt(chartIdFromUrl), parseInt(user.id));
+          
+          if (!chartToLoad) {
+            setSaveResult({
+              success: false,
+              error: "Chart not found or you don't have permission to view it."
+            });
+            return;
           }
-        }
-        
-        // If we found a chart to load, convert and display it
-        if (chartToLoad) {
+
           // Convert the stored chart to our ChartData format
           // Parse planet positions from stored strings
           const planets: Record<string, any> = {};
@@ -852,30 +856,48 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
             setDate(`${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`);
             setTime(now.toLocaleTimeString());
           }
+        } catch (error) {
+          console.error("Error loading chart:", error);
+          setSaveResult({
+            success: false,
+            error: "Failed to load chart. Please try again."
+          });
+        } finally {
+          setLoadingStoredChart(false);
+          setInitialLoadDone(true);
         }
-      } catch (error) {
-        console.error('Error loading initial chart:', error);
-      } finally {
-        setLoadingStoredChart(false);
+      } else {
         setInitialLoadDone(true);
       }
-    }
-    
+    };
+
     loadInitialChart();
-  }, [chartIdFromUrl, isLoaded, isSignedIn, user, initialLoadDone, date, time]);
+  }, [chartIdFromUrl, isLoaded, isSignedIn, user]);
   
   // Handler for selecting a saved chart
   const handleSelectChart = async (chartId: number) => {
     try {
+      if (!isSignedIn || !user) {
+        setSaveResult({
+          success: false,
+          error: "You must be logged in to view saved charts."
+        });
+        return;
+      }
+
       setLoadingStoredChart(true);
       setSelectedChartId(chartId);
       setSaveResult(null); // Clear any previous save results
       
-      // Fetch the saved chart from the database
-      const savedChart = await getBirthChartById(chartId);
+      // Fetch the saved chart from the database with user ID
+      const savedChart = await getBirthChartById(chartId, parseInt(user.id));
       
       if (!savedChart) {
         console.error('Chart not found');
+        setSaveResult({
+          success: false,
+          error: "Chart not found or you don't have permission to view it."
+        });
         return;
       }
       
@@ -975,6 +997,10 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       
     } catch (error) {
       console.error('Error loading saved chart:', error);
+      setSaveResult({
+        success: false,
+        error: "Failed to load chart. Please try again."
+      });
     } finally {
       setLoadingStoredChart(false);
     }
@@ -1044,7 +1070,13 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
           
           {/* Saved Charts Section */}
           <div className="mt-8">
-            <SavedBirthCharts onSelectChart={handleSelectChart} />
+            {isSignedIn ? (
+              <SavedBirthCharts userId={parseInt(user.id)} onSelectChart={handleSelectChart} />
+            ) : (
+              <Card className="p-6 text-center">
+                <p className="text-gray-400">Please log in to view and save your birth charts.</p>
+              </Card>
+            )}
           </div>
         </div>
         
@@ -1182,7 +1214,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                       } as ChartData} 
                       width={600} 
                       height={600}
-                      onSaveChart={handleSaveChart}
+                      onSaveChart={isSignedIn ? handleSaveChart : undefined}
                       onTitleChange={handleTitleChange}
                     />
                   </div>
