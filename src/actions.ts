@@ -4,6 +4,8 @@ import prisma from "./lib/prisma";
 import { revalidatePath } from "next/cache";
 import { calculateBirthChart as calculateEphemerisChart, geocodeLocation } from './lib/ephemeris';
 import chartascendant from "./lib/astronomia"
+import { useUser } from "@clerk/nextjs";
+import { currentUser } from "@clerk/nextjs/server";
 // No need for execSync since we're using WebAssembly version
 import path from 'path';
 // We still need fs for loading city data, but this will be removed in future
@@ -57,9 +59,38 @@ interface PlanetPointData {
  //   const data = await sql`...`;
    // return data;
 //}
+const user = await currentUser();
 
+// Function to ensure user exists in database
+export const syncUser = async (clerkId: string) => {
+  try {
+    // Check if user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        clerkId: clerkId
+      }
+    });
+
+    if (!existingUser) {
+      // Create new user if they don't exist
+      const newUser = await prisma.user.create({
+        data: {
+          clerkId: clerkId
+        }
+      });
+      return newUser;
+    }
+
+    return existingUser;
+  } catch (error) {
+    console.error("Error syncing user:", error);
+    throw error;
+  }
+};
+
+// Modify addUser to use syncUser
 export const addUser = async (formData: FormData) => {
-    const uname = formData.get("uname") as string;
+    const name = formData.get("uname") as string;
     const phone = formData.get("phone") as string;
     const email = formData.get("email") as string;
     const birthday = formData.get("birthday") as string;
@@ -68,10 +99,16 @@ export const addUser = async (formData: FormData) => {
     const questions = formData.get("questions") as string;
     const rtype = formData.get("rtype") as string;
     const price = formData.get("price") as string;
+    const username = user?.username as string;
     
-    await prisma.user.create({
+    // Ensure user exists in database if logged in
+    if (user?.id) {
+      await syncUser(user.id);
+    }
+    
+    await prisma.formSubmission.create({
       data: {
-        uname: uname as string,
+        name: name as string,
         phone: phone as string,
         email: email as string,
         birthday: birthday as string,
@@ -79,7 +116,8 @@ export const addUser = async (formData: FormData) => {
         location: location as string,
         questions: questions as string,
         rtype: rtype as string,
-        price: price as string
+        price: price as string,
+        username: username
       },
     });
   };

@@ -13,10 +13,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+
 model User {
   id              Int @id @default(autoincrement())  
   clerkId         String? @unique
-  uname           String 
+  defaultChartId  Int?
+  birthCharts     BirthChart[]
+  tarotReadings   TarotReading[]
+}
+
+model FormSubmission {
+  id              Int @id @default(autoincrement())  
+  name            String 
   email           String   
   phone           String
   birthday        String
@@ -25,9 +34,9 @@ model User {
   questions       String
   rtype           String
   price           String
-  defaultChartId  Int?
-  birthCharts     BirthChart[]
-  tarotReadings   TarotReading[]
+  username        String?
+  
+  createdAt       DateTime @default(now())
 }
 
 model BirthChart {

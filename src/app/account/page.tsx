@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator';
-import { getBirthCharts, getBirthChartById, saveBirthChart, setDefaultChart, getDefaultChart } from '@/actions';
+import { getBirthCharts, getBirthChartById, saveBirthChart, setDefaultChart, getDefaultChart, syncUser } from '@/actions';
 import { BookOpen, Settings, User, LogOut, Calendar, Star } from 'lucide-react';
 
 // Tabs for the user dashboard
@@ -49,6 +49,21 @@ export default function AccountPage() {
       });
     }
   }, [isLoaded, isSignedIn, user]);
+
+  // Add user sync effect
+  useEffect(() => {
+    const syncUserData = async () => {
+      if (isSignedIn && user?.id) {
+        try {
+          await syncUser(user.id);
+        } catch (error) {
+          console.error('Error syncing user:', error);
+        }
+      }
+    };
+
+    syncUserData();
+  }, [isSignedIn, user?.id]);
 
   // Load user's birth charts
   useEffect(() => {
