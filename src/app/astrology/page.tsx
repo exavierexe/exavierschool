@@ -1,3 +1,5 @@
+'use client';
+
 import Image from "next/image";
 import { NavBar } from "@/components/ui/navbar";
 import { addUser } from "@/actions";
@@ -10,15 +12,34 @@ import secretscroll from "./visuals/secretscroll.jpg";
 import venusbeach from "./visuals/venusbeach.jpg";
 import healing from "./visuals/healing.jpg";
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function Astrology() {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
+  const handleSubmit = async (formData: FormData) => {
+    try {
+      const result = await addUser(formData);
+      if (result.success) {
+        router.push('/success');
+      } else {
+        setError(result.error || 'Failed to submit form');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    }
+  };
 
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 pt-16 gap-16 sm:p-20 sm:pt-24 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        
-       
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
       </main>
 
       <section className="flex items-center row-span-2 justify-center text-center text-balance flex-col gap-8 px-9">
@@ -36,7 +57,7 @@ export default function Astrology() {
       <br></br>
 
       <section className="min-h-screen flex items-center row-span-2 justify-center text-center text-balance flex-col gap-8 px-9">
-          <form action={addUser}>
+          <form action={handleSubmit}>
           <CardWithForm></CardWithForm>
           </form>
       </section>
@@ -179,7 +200,7 @@ export default function Astrology() {
       </section>
 
       <section className="min-h-screen flex items-center row-span-2 justify-center text-center text-balance flex-col gap-8 px-9">
-          <form action={addUser}>
+          <form action={handleSubmit}>
           <CardWithForm></CardWithForm>
           </form>
       </section>

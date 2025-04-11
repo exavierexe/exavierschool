@@ -59,7 +59,6 @@ interface PlanetPointData {
  //   const data = await sql`...`;
    // return data;
 //}
-const user = await currentUser();
 
 // Function to ensure user exists in database
 export const syncUser = async (clerkId: string) => {
@@ -90,37 +89,45 @@ export const syncUser = async (clerkId: string) => {
 
 // Modify addUser to use syncUser
 export const addUser = async (formData: FormData) => {
-    const name = formData.get("uname") as string;
-    const phone = formData.get("phone") as string;
-    const email = formData.get("email") as string;
-    const birthday = formData.get("birthday") as string;
-    const time = formData.get("time") as string;
-    const location = formData.get("location") as string;
-    const questions = formData.get("questions") as string;
-    const rtype = formData.get("rtype") as string;
-    const price = formData.get("price") as string;
-    const username = user?.username as string;
-    
-    // Ensure user exists in database if logged in
-    if (user?.id) {
-      await syncUser(user.id);
+    try {
+        const user = await currentUser();
+        const name = formData.get("uname") as string;
+        const phone = formData.get("phone") as string;
+        const email = formData.get("email") as string;
+        const birthday = formData.get("birthday") as string;
+        const time = formData.get("time") as string;
+        const location = formData.get("location") as string;
+        const questions = formData.get("questions") as string;
+        const rtype = formData.get("rtype") as string;
+        const price = formData.get("price") as string;
+        const username = user?.username as string;
+        
+        // Ensure user exists in database if logged in
+        if (user?.id) {
+            await syncUser(user.id);
+        }
+        
+        await prisma.formSubmission.create({
+            data: {
+                name: name as string,
+                phone: phone as string,
+                email: email as string,
+                birthday: birthday as string,
+                time: time as string,
+                location: location as string,
+                questions: questions as string,
+                rtype: rtype as string,
+                price: price as string,
+                username: username
+            },
+        });
+        
+        return { success: true };
+    } catch (error) {
+        console.error("Error in addUser:", error);
+        return { success: false, error: "Failed to process form submission" };
     }
-    
-    await prisma.formSubmission.create({
-      data: {
-        name: name as string,
-        phone: phone as string,
-        email: email as string,
-        birthday: birthday as string,
-        time: time as string,
-        location: location as string,
-        questions: questions as string,
-        rtype: rtype as string,
-        price: price as string,
-        username: username
-      },
-    });
-  };
+};
 
 // Server action to sync user
 export async function syncUserAction() {
