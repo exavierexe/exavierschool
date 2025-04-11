@@ -63,6 +63,9 @@ interface PlanetPointData {
 // Function to ensure user exists in database
 export const syncUser = async (clerkId: string) => {
   try {
+    // Get the current user from Clerk to access their username
+    const clerkUser = await currentUser();
+    
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -74,13 +77,26 @@ export const syncUser = async (clerkId: string) => {
       // Create new user if they don't exist
       const newUser = await prisma.user.create({
         data: {
-          clerkId: clerkId
+          clerkId: clerkId,
+          username: clerkUser?.username || null
         }
       });
       return newUser;
+    } else {
+      // Update existing user's username if it has changed
+      if (existingUser.username !== clerkUser?.username) {
+        const updatedUser = await prisma.user.update({
+          where: {
+            id: existingUser.id
+          },
+          data: {
+            username: clerkUser?.username || null
+          }
+        });
+        return updatedUser;
+      }
+      return existingUser;
     }
-
-    return existingUser;
   } catch (error) {
     console.error("Error syncing user:", error);
     throw error;
