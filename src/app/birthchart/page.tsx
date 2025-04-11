@@ -725,21 +725,11 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         return;
       }
 
-      // Validate user ID
-      const userId = parseInt(user.id);
-      if (isNaN(userId)) {
-        setSaveResult({
-          success: false,
-          error: "Invalid user ID. Please sign out and sign in again."
-        });
-        return;
-      }
-
       setSavingChart(true);
       setSaveResult(null);
       
-      // Call the saveBirthChart server action with user ID
-      const result = await saveBirthChart(updatedChartData, userId);
+      // Call the saveBirthChart server action with the Clerk user ID
+      const result = await saveBirthChart(updatedChartData, user.id);
       
       // Update state with the result
       setSaveResult(result);

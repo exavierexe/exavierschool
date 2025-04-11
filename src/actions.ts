@@ -923,7 +923,7 @@ export async function determineTimeZone(longitude: number, latitude: number): Pr
 }
 
 // Save a birth chart
-export const saveBirthChart = async (chartData: any, userId: number) => {
+export const saveBirthChart = async (chartData: any, userId: string) => {
   try {
     if (!chartData) {
       return {
@@ -933,7 +933,7 @@ export const saveBirthChart = async (chartData: any, userId: number) => {
     }
 
     // Validate user ID
-    if (!userId || isNaN(userId)) {
+    if (!userId) {
       return {
         success: false,
         error: "Invalid user ID. Please log in again."
@@ -941,8 +941,13 @@ export const saveBirthChart = async (chartData: any, userId: number) => {
     }
 
     // Verify user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
+    const user = await prisma.user.findFirst({
+      where: { 
+        OR: [
+          { id: parseInt(userId) },
+          { clerkId: userId }
+        ]
+      }
     });
 
     if (!user) {
@@ -1050,7 +1055,7 @@ export const saveBirthChart = async (chartData: any, userId: number) => {
         lilith: formatPlanetData(chartData.planets?.lilith),
         houses: chartData.houses || {},
         aspects: chartData.aspects || [],
-        userId: userId,
+        userId: user.id,
       }
     });
     
