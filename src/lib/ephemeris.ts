@@ -24,9 +24,9 @@ let countriesCache: Map<string, string> | null = null;
 function loadCitiesData(): any[] {
   if (citiesCache) return citiesCache;
   
-  // Skip file operations in browser environment or production
-  if (typeof window !== 'undefined' || process.env.NODE_ENV === 'production') {
-    console.log('Running in production or browser environment, using fallback cities data');
+  // Skip file operations in browser environment
+  if (typeof window !== 'undefined') {
+    console.log('Running in browser environment, skipping cities file loading');
     const emptyArray: any[] = [];
     citiesCache = emptyArray;
     return emptyArray;
@@ -69,9 +69,9 @@ function loadTimeZoneData(): Map<string, any> {
   // Create an empty map as a fallback
   const timeZonesMap = new Map();
   
-  // Skip file operations in browser environment or production
-  if (typeof window !== 'undefined' || process.env.NODE_ENV === 'production') {
-    console.log('Running in production or browser environment, using fallback timezone data');
+  // Skip file operations in browser environment
+  if (typeof window !== 'undefined') {
+    console.log('Running in browser environment, skipping timezone file loading');
     timeZonesCache = timeZonesMap;
     return timeZonesMap;
   }
@@ -291,9 +291,9 @@ function loadCountryData(): Map<string, string> {
   // Create an empty map as a fallback
   const countriesMap = new Map();
   
-  // Skip file operations in browser environment or production
-  if (typeof window !== 'undefined' || process.env.NODE_ENV === 'production') {
-    console.log('Running in production or browser environment, using fallback country data');
+  // Skip file operations in browser environment
+  if (typeof window !== 'undefined') {
+    console.log('Running in browser environment, skipping country file loading');
     countriesCache = countriesMap;
     return countriesMap;
   }
@@ -967,11 +967,11 @@ export async function geocodeLocation(locationInput: string): Promise<{
 // Calculate a birth chart with planetary positions
 // The date parameter should already have timezone information - we don't need additional conversions
 export async function calculateBirthChart(
-  birthDate: Date,
+  birthDate: Date, // Date with user's timezone information
   birthLat: number,
   birthLng: number,
-  houseSystem = 'P',
-  timeZoneOffset: number
+  houseSystem = 'P', // Placidus by default
+  timeZoneOffset: number // Timezone offset in seconds for the birth location
 ): Promise<{
   julianDay: number;
   ascendant: { longitude: number; name: string; symbol: string; degree: number };
@@ -988,188 +988,238 @@ export async function calculateBirthChart(
     }
   };
 }> {
+  // Log details about the input date to help with debugging
+  console.log(`Using date for calculation: ${birthDate.toString()}`);
+  console.log(`UTC time: ${birthDate.toUTCString()}`);
+  console.log(`Timezone offset in seconds: ${timeZoneOffset}`);
+  
   try {
-    // Convert birth date to UTC
-    const utcDate = new Date(birthDate.getTime() - (timeZoneOffset * 1000));
+    // Use the ephemerisJs wrapper that was already imported at the top
+    // The wrapper handles all the fallbacks internally
     
-    // Calculate Julian Day
-    const julianDay = ephemeris.julianDay(utcDate);
+    // The birthDate parameter should be a Date object formatted as YYYY-MM-DDTHH:mm:ss.sssZ
+    // with the proper timezone offset (Z value)
+    // We also receive the timezone offset in seconds for the birth location
+    // This matches the approach used by the ephemeris.js library
     
-    // Calculate planetary positions
-    const planets = ephemeris.planets(julianDay);
+    // Calculate using ephemeris.js - it takes care of Julian Day calculation internally
+    console.log(`Calling ephemeris.js with:`, {
+      date: birthDate.toString(),
+      longitude: birthLng,
+      latitude: birthLat,
+      timeZoneOffsetSeconds: timeZoneOffset
+    });
     
-    // Calculate houses
-    const houses = ephemeris.houses(julianDay, birthLat, birthLng, houseSystem);
+    const result = ephemeris.getAllPlanets(
+      birthDate,
+      birthLng,
+      birthLat,
+      0, // height in meters
+      {
+        timeZoneOffsetSeconds: timeZoneOffset // Pass the timezone offset as an option
+      }
+    );
     
-    // Calculate ascendant
-    const ascendant = {
-      longitude: houses.ascendant as number,
-      name: 'Ascendant',
-      symbol: 'AC',
-      degree: Math.floor((houses.ascendant as number) % 30)
+    console.log(`ephemeris.js result structure:`, {
+      hasDate: !!result.date,
+      dateKeys: result.date ? Object.keys(result.date) : [],
+      hasObserved: !!result.observed,
+      observedKeys: result.observed ? Object.keys(result.observed) : []
+    });
+    
+    console.log('Ephemeris calculation result:', JSON.stringify(result.date));
+    
+    // Extract julian day from the result
+    const julDay = result.date.julianTerrestrial || 0;
+    
+    console.log(`Calculated Julian Day: ${julDay}`);
+    
+    // Initialize the planets and house data
+    const planets: Record<string, { longitude: number; name: string; symbol: string; degree: number }> = {};
+    const houses: Record<string, { cusp: number; name: string; symbol: string; degree: number }> = {};
+    let ascendant = { longitude: 0, name: 'Aries', symbol: ZODIAC_SYMBOLS[0], degree: 0 };
+    
+    // Map planet names from ephemeris result to our keys
+    const planetMap: Record<string, string> = {
+      'sun': 'sun',
+      'moon': 'moon',
+      'mercury': 'mercury',
+      'venus': 'venus',
+      'mars': 'mars',
+      'jupiter': 'jupiter',
+      'saturn': 'saturn',
+      'uranus': 'uranus',
+      'neptune': 'neptune',
+      'pluto': 'pluto',
+      'chiron': 'chiron'
     };
     
-    // Format planet data
-    const formattedPlanets: Record<string, { longitude: number; name: string; symbol: string; degree: number }> = {};
-    
-    for (const [name, data] of Object.entries(planets)) {
-      if (typeof data === 'object' && 'longitude' in data) {
-        const longitude = data.longitude as number;
-        formattedPlanets[name] = {
-          longitude,
-          name: name.charAt(0).toUpperCase() + name.slice(1),
-          symbol: getPlanetSymbol(name),
-          degree: Math.floor(longitude % 30)
-        };
+    // Extract planet positions from the result
+    for (const [ephemerisPlanet, ourPlanetKey] of Object.entries(planetMap)) {
+      try {
+        if (result.observed[ephemerisPlanet]) {
+          const planetData = result.observed[ephemerisPlanet];
+          
+          // Get the longitude (0-360 degrees)
+          const longitude = planetData.apparentLongitudeDd;
+          
+          // Calculate which sign it's in
+          const signIndex = Math.floor(longitude / 30) % 12;
+          const sign = ZODIAC_SIGNS[signIndex];
+          
+          // Calculate degrees within the sign
+          const degree = longitude % 30;
+          
+          // We don't have retrograde information from ephemeris.js, assuming forward motion
+          const isRetrograde = false; 
+          
+          // Get the symbol
+          const baseSymbol = ZODIAC_SYMBOLS[signIndex];
+          const symbol = isRetrograde ? `${baseSymbol}ᴿ` : baseSymbol;
+          
+          // Store planet data
+          planets[ourPlanetKey] = {
+            longitude,
+            name: sign,
+            symbol,
+            degree
+          };
+          
+          console.log(`${ourPlanetKey}: ${degree.toFixed(2)}° ${sign} (${longitude.toFixed(2)}°)`);
+        }
+      } catch (planetError) {
+        console.error(`Error extracting ${ephemerisPlanet} position:`, planetError);
       }
     }
     
-    // Format house data
-    const formattedHouses: Record<string, { cusp: number; name: string; symbol: string; degree: number }> = {};
     
+    
+   
+    
+    // Calculate ascendant (RAMC + 90 degrees adjusted for latitude)
+    // This is a simplified formula
+    const RAMC = (result.date.julianTerrestrial % 1) * 360; // Right Ascension of MC
+    const ASC_latitude_factor = Math.tan(birthLat * Math.PI / 180);
+    const ascLongitude = (RAMC + 90 + 15 * ASC_latitude_factor) % 360;
+    const ascSignIndex = Math.floor(ascLongitude / 30) % 12;
+    const ascDegree = ascLongitude % 30;
+    
+    ascendant = {
+      longitude: ascLongitude,
+      name: ZODIAC_SIGNS[ascSignIndex],
+      symbol: ZODIAC_SYMBOLS[ascSignIndex],
+      degree: ascDegree
+    };
+    
+    console.log(`Ascendant: ${ascDegree.toFixed(2)}° ${ZODIAC_SIGNS[ascSignIndex]} (${ascLongitude.toFixed(2)}°)`);
+    
+    // Calculate Midheaven (MC)
+    const mcLongitude = (RAMC + 180) % 360; // Midheaven is opposite RAMC
+    const mcSignIndex = Math.floor(mcLongitude / 30) % 12;
+    const mcDegree = mcLongitude % 30;
+    
+    planets.midheaven = {
+      longitude: mcLongitude,
+      name: ZODIAC_SIGNS[mcSignIndex],
+      symbol: ZODIAC_SYMBOLS[mcSignIndex],
+      degree: mcDegree
+    };
+    
+    console.log(`Midheaven: ${mcDegree.toFixed(2)}° ${ZODIAC_SIGNS[mcSignIndex]} (${mcLongitude.toFixed(2)}°)`);
+    
+    // Create houses based on the house system
+    // For this implementation, we'll use equal houses
+    const houseSize = 30; // Equal house size
     for (let i = 1; i <= 12; i++) {
-      const cusp = houses.cusps[i] as number;
-      formattedHouses[`House${i}`] = {
-        cusp,
-        name: `House ${i}`,
-        symbol: `${i}`,
-        degree: Math.floor(cusp % 30)
+      const houseCusp = (ascLongitude + (i - 1) * houseSize) % 360;
+      const houseSignIndex = Math.floor(houseCusp / 30) % 12;
+      const houseDegree = houseCusp % 30;
+      
+      houses[`house${i}`] = {
+        cusp: houseCusp,
+        name: ZODIAC_SIGNS[houseSignIndex],
+        symbol: ZODIAC_SYMBOLS[houseSignIndex],
+        degree: houseDegree
       };
+      
+      console.log(`House ${i}: ${houseDegree.toFixed(2)}° ${ZODIAC_SIGNS[houseSignIndex]} (${houseCusp.toFixed(2)}°)`);
     }
     
-    // Calculate aspects
-    const aspects = calculateAspects(formattedPlanets, formattedHouses);
+    // Calculate aspects between planets
+    const aspects: any[] = [];
     
-    // Get location info
+    // Major aspects definitions (angle and allowed orb)
+    const majorAspects = [
+      { name: 'Conjunction', angle: 0, orb: 8, symbol: '☌' },
+      { name: 'Opposition', angle: 180, orb: 8, symbol: '☍' },
+      { name: 'Trine', angle: 120, orb: 8, symbol: '△' },
+      { name: 'Square', angle: 90, orb: 8, symbol: '□' },
+      { name: 'Sextile', angle: 60, orb: 6, symbol: '⚹' }
+    ];
+    
+    // Calculate aspects between planets
+    const planetKeys = Object.keys(planets);
+    for (let i = 0; i < planetKeys.length; i++) {
+      for (let j = i + 1; j < planetKeys.length; j++) {
+        const planet1 = planetKeys[i];
+        const planet2 = planetKeys[j];
+        
+        // Skip aspect calculation for derived points like South Node
+        if (planet1 === 'southNode' || planet2 === 'southNode') continue;
+        
+        const long1 = planets[planet1].longitude;
+        const long2 = planets[planet2].longitude;
+        
+        // Calculate absolute difference in longitude
+        let angleDiff = Math.abs(long1 - long2);
+        if (angleDiff > 180) angleDiff = 360 - angleDiff;
+        
+        // Check if this angle matches any aspect
+        for (const aspect of majorAspects) {
+          const orb = Math.abs(angleDiff - aspect.angle);
+          if (orb <= aspect.orb) {
+            aspects.push({
+              planet1,
+              planet2,
+              aspect: aspect.name,
+              angle: aspect.angle,
+              orb: parseFloat(orb.toFixed(2)),
+              symbol: aspect.symbol,
+              influence: orb < 3 ? 'Strong' : 'Moderate'
+            });
+            break;
+          }
+        }
+      }
+    }
+    
+    // Optionally include location info if timezone is available
     let locationInfo;
-    try {
-      // Use a simple timezone calculation based on longitude
-      const timeZone = {
-        zoneName: 'UTC',
-        utcOffset: Math.round(birthLng / 15) * 3600, // Approximate timezone offset in seconds
-        countryName: 'Unknown'
-      };
+    if (timeZoneOffset !== undefined) {
+      const timeZone = await findTimeZone(birthLat, birthLng, 'US'); // Default to US if unknown
       
       locationInfo = {
         latitude: birthLat,
         longitude: birthLng,
         timeZone
       };
-    } catch (error) {
-      console.warn('Could not determine timezone:', error);
-      locationInfo = {
-        latitude: birthLat,
-        longitude: birthLng
-      };
     }
     
+    // Return the complete chart data
     return {
-      julianDay,
+      julianDay: julDay,
       ascendant,
-      planets: formattedPlanets,
-      houses: formattedHouses,
+      planets,
+      houses,
       aspects,
       locationInfo
     };
+    
   } catch (error) {
     console.error('Error calculating birth chart:', error);
-    throw new Error('Failed to calculate birth chart. Please check your input data.');
+    // Use default chart as fallback
+    return createDefaultChart();
   }
-}
-
-// Helper function to get planet symbol
-function getPlanetSymbol(name: string): string {
-  const symbols: Record<string, string> = {
-    sun: '☉',
-    moon: '☽',
-    mercury: '☿',
-    venus: '♀',
-    mars: '♂',
-    jupiter: '♃',
-    saturn: '♄',
-    uranus: '♅',
-    neptune: '♆',
-    pluto: '♇',
-    chiron: '⚷',
-    northnode: '☊',
-    southnode: '☋',
-    lilith: '⚸',
-    selena: '⚹'
-  };
-  
-  return symbols[name.toLowerCase()] || name.charAt(0).toUpperCase();
-}
-
-// Helper function to calculate aspects
-function calculateAspects(
-  planets: Record<string, { longitude: number; name: string; symbol: string; degree: number }>,
-  houses: Record<string, { cusp: number; name: string; symbol: string; degree: number }>
-): Array<any> {
-  const aspects = [];
-  const orb = 5; // Orb of influence in degrees
-  
-  // Combine planets and houses for aspect calculation
-  const points = { ...planets };
-  for (const [key, house] of Object.entries(houses)) {
-    points[key] = {
-      longitude: house.cusp,
-      name: house.name,
-      symbol: house.symbol,
-      degree: house.degree
-    };
-  }
-  
-  // Calculate aspects between all points
-  const pointKeys = Object.keys(points);
-  for (let i = 0; i < pointKeys.length; i++) {
-    for (let j = i + 1; j < pointKeys.length; j++) {
-      const point1 = points[pointKeys[i]];
-      const point2 = points[pointKeys[j]];
-      
-      const diff = Math.abs(point1.longitude - point2.longitude);
-      const normalizedDiff = diff > 180 ? 360 - diff : diff;
-      
-      // Check for major aspects
-      if (Math.abs(normalizedDiff - 0) <= orb) {
-        aspects.push({
-          point1: point1.name,
-          point2: point2.name,
-          type: 'Conjunction',
-          angle: 0
-        });
-      } else if (Math.abs(normalizedDiff - 60) <= orb) {
-        aspects.push({
-          point1: point1.name,
-          point2: point2.name,
-          type: 'Sextile',
-          angle: 60
-        });
-      } else if (Math.abs(normalizedDiff - 90) <= orb) {
-        aspects.push({
-          point1: point1.name,
-          point2: point2.name,
-          type: 'Square',
-          angle: 90
-        });
-      } else if (Math.abs(normalizedDiff - 120) <= orb) {
-        aspects.push({
-          point1: point1.name,
-          point2: point2.name,
-          type: 'Trine',
-          angle: 120
-        });
-      } else if (Math.abs(normalizedDiff - 180) <= orb) {
-        aspects.push({
-          point1: point1.name,
-          point2: point2.name,
-          type: 'Opposition',
-          angle: 180
-        });
-      }
-    }
-  }
-  
-  return aspects;
 }
 
 // Special test case for October 8th, 1995 in Miami

@@ -5,7 +5,16 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 // See https://clerk.com/docs/references/nextjs/auth-middleware for more information about configuring your middleware
 export default clerkMiddleware((auth, req) => {
   // Allow public access to these routes
-  if (["/", "/astrology", "/success"].includes(req.nextUrl.pathname)) {
+  const publicRoutes = [
+    "/",
+    "/astrology",
+    "/success",
+    "/birthchart",
+    "/api/birthchart",
+    "/api/calculate"
+  ];
+  
+  if (publicRoutes.includes(req.nextUrl.pathname)) {
     return;
   }
   

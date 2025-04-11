@@ -8,11 +8,21 @@ import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { querySwissEph, saveBirthChart, getBirthChartById, getDefaultChart } from '../../actions'
-import { ZodiacWheel, type ChartData, exportChartAsImage } from '@/components/ui/zodiacwheel'
+import { querySwissEph, saveBirthChart, getBirthChartById, getDefaultChart } from '@/actions'
+import { ZodiacWheel } from '@/components/ui/zodiacwheel'
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator'
 import { SignedIn, SignedOut } from '@clerk/nextjs'
 import { currentUser } from '@clerk/nextjs/server'
+import type { ChartData } from '@/components/ui/zodiacwheel'
+
+// Define zodiac constants
+const ZODIAC_SIGNS = [
+  'Aries', 'Taurus', 'Gemini', 'Cancer',
+  'Leo', 'Virgo', 'Libra', 'Scorpio',
+  'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+];
+
+const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
 
 // Helper function to parse JavaScript Ephemeris output into chart data
 function parseSwissEphOutput(output: string): ChartData {
@@ -45,14 +55,6 @@ function parseSwissEphOutput(output: string): ChartData {
   const planets: Record<string, PlanetData> = {};
   const houses: Record<string, HouseData> = {};
   let ascendant: PlanetData = { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 };
-  
-  // Zodiac signs and their symbols
-  const ZODIAC_SIGNS = [
-    'Aries', 'Taurus', 'Gemini', 'Cancer',
-    'Leo', 'Virgo', 'Libra', 'Scorpio',
-    'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
-  ];
-  const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
   
   // Map planet names to their keys
   const planetMap: Record<string, string> = {
@@ -421,15 +423,6 @@ function parseSwissEphOutput(output: string): ChartData {
   };
 }
 
-// Define constants here for reuse
-const ZODIAC_SIGNS = [
-  'Aries', 'Taurus', 'Gemini', 'Cancer',
-  'Leo', 'Virgo', 'Libra', 'Scorpio',
-  'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
-];
-
-const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
-
 // Wrapper component to handle search params with Suspense
 function ChartParamsWrapper({ children }: { children: (props: { chartIdFromUrl: string | null }) => React.ReactNode }) {
   const searchParams = useSearchParams();
@@ -446,327 +439,123 @@ function getZodiacSymbol(signIndex: number): string {
 
 function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) {
   const { isLoaded, isSignedIn, user } = useUser();
-  
-  // Get current date in the user's local time zone
-  const currentDate = new Date();
-  console.log("Current date")
-  console.log(currentDate)
-  
-  // Format date in DD.MM.YYYY format
-  const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}.${(currentDate.getMonth() + 1).toString().padStart(2, '0')}.${currentDate.getFullYear()}`;
-  console.log(formattedDate)
-  // Get current time in HH:MM format in user's local time zone
-  const formattedTime = `${currentDate.getHours().toString().padStart(2, '0')}:${currentDate.getMinutes().toString().padStart(2, '0')}`;
-  
-  // Default location state
-  const [date, setDate] = useState(formattedDate)
-  const [time, setTime] = useState(formattedTime)
-  const [location, setLocation] = useState('') // Will be determined by geolocation
-  const [locationLoading, setLocationLoading] = useState(true)
-  
-  // State for ephemeris calculation data
-  const [planetData, setPlanetData] = useState<any>({})
-  const [pointData, setPointData] = useState<any>({})
-  const [houseData, setHouseData] = useState<any>({})
-  
-  // Get user's approximate location using geolocation API
-  useEffect(() => {
-    const getLocation = async () => {
-      try {
-        setLocationLoading(true);
-        
-        // Check if browser supports geolocation
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              try {
-                // Get latitude and longitude
-                const { latitude, longitude } = position.coords;
-                
-                // Attempt to get city name using a reverse geocoding service
-                // Here we're using a simple approach that should work in most browsers
-                const response = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
-                );
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  let locationStr = '';
-                  
-                  // Try to create a readable location string
-                  if (data.address) {
-                    // Get only city, state, and country (no county)
-                    const city = data.address.city || data.address.town || data.address.village || '';
-                    const state = data.address.state || '';
-                    const country = data.address.country || '';
-                    
-                    // Build location string with just these three parts
-                    if (city) locationStr += city;
-                    if (state) locationStr += locationStr ? `, ${state}` : state;
-                    if (country) locationStr += locationStr ? `, ${country}` : country;
-                    
-                    console.log("Detected location:", locationStr);
-                  }
-                  
-                  // Set the user's location, or default to "Your Location" if geocoding failed
-                  setLocation(locationStr || "Your Location");
-                } else {
-                  // Default location if the geocoding fails
-                  setLocation("Your Location");
-                }
-              } catch (error) {
-                console.error("Error getting location name:", error);
-                setLocation("Your Location");
-              } finally {
-                setLocationLoading(false);
-              }
-            },
-            (error) => {
-              console.error("Geolocation error:", error);
-              setLocation("New York, NY, USA"); // Default if geolocation fails
-              setLocationLoading(false);
-            },
-            { timeout: 5000 } // 5 second timeout
-          );
-        } else {
-          // Browser doesn't support geolocation
-          console.log("Geolocation not supported by browser");
-          setLocation("New York, NY, USA");
-          setLocationLoading(false);
-        }
-      } catch (error) {
-        console.error("Error in geolocation:", error);
-        setLocation("New York, NY, USA");
-        setLocationLoading(false);
-      }
-    };
-    
-    getLocation();
-  }, []);
-  const [result, setResult] = useState<{ output: string; error?: string } | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [chartData, setChartData] = useState<ChartData | null>(null)
-  const [showChart, setShowChart] = useState(false)
-  const [savingChart, setSavingChart] = useState(false)
-  const [saveResult, setSaveResult] = useState<{ success: boolean; error?: string; chartId?: number } | null>(null)
-  const [selectedChartId, setSelectedChartId] = useState<number | null>(null)
-  const [loadingStoredChart, setLoadingStoredChart] = useState(false)
-  const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [date, setDate] = useState<string>('');
+  const [time, setTime] = useState<string>('');
+  const [location, setLocation] = useState<string>('');
+  const [chartData, setChartData] = useState<ChartData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saveResult, setSaveResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [showChart, setShowChart] = useState(false);
+  const [loadingStoredChart, setLoadingStoredChart] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setResult(null)
-    setChartData(null)
-    setShowChart(false)
-    
+  const handleCalculate = async () => {
     try {
-      // Format date for the API call
-      const dateParts = date.split('.');
-      const formattedDate = {
-        day: parseInt(dateParts[0]),
-        month: parseInt(dateParts[1]),
-        year: parseInt(dateParts[2])
-      };
+      setLoading(true);
+      setError(null);
+      setSaveResult(null);
+
+      if (!date || !time || !location) {
+        setError('Please fill in all required fields');
+        return;
+      }
+
+      const result = await querySwissEph({ date, time, location });
       
-      // Parse time
-      const timeParts = time.split(':');
-      const hour = parseInt(timeParts[0]);
-      const minute = parseInt(timeParts[1]);
-      
-      // Call querySwissEph
-      const response = await querySwissEph({
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      // Convert the result to ChartData format
+      const chartData: ChartData = {
+        title: `Birth Chart - ${date}`,
         date,
         time,
-        location
-      })
-      
-      // Store the raw response
-      setResult(response)
-      
-      // Extract and store the calculation data
-      if (response.planetData) setPlanetData(response.planetData);
-      if (response.pointData) setPointData(response.pointData);
-      if (response.houseData) setHouseData(response.houseData);
-      
-      // Log the data we received
-      console.log("Received calculation data:", {
-        planetData: response.planetData,
-        pointData: response.pointData,
-        houseData: response.houseData
-      });
-      
-    } catch (error) {
-      setResult({ output: '', error: 'Failed to execute query. Please try again.' })
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  const handleShowChart = () => {
-    setShowChart(true);
-    setSaveResult(null);
-    
-    // Create chart data using the stored calculation data
-    const planets: Record<string, any> = {};
-    
-    // Define planet symbols
-    const planetSymbols: Record<string, string> = {
-      sun: '☉',
-      moon: '☽',
-      mercury: '☿',
-      venus: '♀',
-      mars: '♂',
-      jupiter: '♃',
-      saturn: '♄',
-      uranus: '♅',
-      neptune: '♆',
-      pluto: '♇',
-      ascendant: 'Asc',
-      midheaven: 'MC',
-      meanNode: '☊',
-      trueNode: '☊',
-      southNode: '☋',
-      meanLilith: '⚸',
-      oscLilith: '⚸',
-      chiron: '⚷'
-    };
-    
-    // Combine planet and point data
-    for (const key in planetData) {
-      if (planetData[key]) {
-        planets[key] = {
-          ...planetData[key],
-          degree: parseFloat(planetData[key].degree) || 0,
-          symbol: planetSymbols[key] || planetData[key].symbol
-        };
-      }
-    }
-    
-    for (const key in pointData) {
-      if (pointData[key]) {
-        planets[key] = {
-          ...pointData[key],
-          degree: parseFloat(pointData[key].degree) || 0,
-          symbol: planetSymbols[key] || pointData[key].symbol
-        };
-      }
-    }
-    
-    // Ensure all required planets exist
-    const requiredPlanets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'midheaven'];
-    for (const planet of requiredPlanets) {
-      if (!planets[planet] || typeof planets[planet].degree !== 'number') {
-        console.log(`Adding placeholder for ${planet}`);
-        planets[planet] = {
-          name: 'Aries',
-          symbol: planetSymbols[planet] || '♈',
-          longitude: 0,
-          degree: 0
-        };
-      }
-    }
-    
-    // Prepare houses data
-    const houses: Record<string, any> = {};
-    for (let i = 1; i <= 12; i++) {
-      const houseKey = `house${i}`;
-      const actionHouseKey = `House ${i}`;
-      
-      if (houseData[actionHouseKey]) {
-        houses[houseKey] = {
-          cusp: houseData[actionHouseKey].longitude,
-          name: houseData[actionHouseKey].sign,
-          symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData[actionHouseKey].sign)),
-          degree: houseData[actionHouseKey].degree
-        };
-      }
-    }
-    
-    // Get ascendant from houseData
-    const ascendant = houseData['Ascendant'] ? {
-      name: houseData['Ascendant'].sign,
-      symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData['Ascendant'].sign)),
-      longitude: houseData['Ascendant'].longitude,
-      degree: houseData['Ascendant'].degree
-    } : { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 };
-    
-    // Create the chart data object
-    const newChartData = {
-      planets,
-      houses,
-      ascendant,
-      date,
-      time,
-      location,
-      title: `Birth Chart - ${date}`
-    };
-    
-    console.log("Generated chart data:", newChartData);
-    setChartData(newChartData);
-  }
-  
-  // Handler for saving the chart
-  const handleSaveChart = async (updatedChartData: ChartData) => {
-    try {
-      if (!isLoaded) {
-        setSaveResult({
-          success: false,
-          error: "Authentication is still loading. Please wait."
+        location,
+        planets: {},
+        houses: {},
+        ascendant: { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 }
+      };
+
+      // Convert planet data
+      if (result.planetData) {
+        Object.entries(result.planetData).forEach(([key, data]: [string, any]) => {
+          if (data && typeof data.longitude === 'number') {
+            const signIndex = Math.floor(data.longitude / 30) % 12;
+            const degree = data.longitude % 30;
+            
+            chartData.planets[key] = {
+              name: data.name || ZODIAC_SIGNS[signIndex],
+              symbol: data.symbol || ZODIAC_SYMBOLS[signIndex],
+              longitude: data.longitude,
+              degree: degree
+            };
+          }
         });
-        return;
       }
 
-      if (!isSignedIn || !user) {
-        setSaveResult({
-          success: false,
-          error: "You must be logged in to save a chart. Please sign in and try again."
+      // Convert house data
+      if (result.houseData) {
+        Object.entries(result.houseData).forEach(([key, data]: [string, any]) => {
+          if (data && typeof data.cusp === 'number') {
+            const signIndex = Math.floor(data.cusp / 30) % 12;
+            chartData.houses[key] = {
+              cusp: data.cusp,
+              name: data.name || ZODIAC_SIGNS[signIndex],
+              symbol: data.symbol || ZODIAC_SYMBOLS[signIndex],
+              degree: data.cusp % 30
+            };
+          }
         });
-        return;
       }
 
-      setSavingChart(true);
-      setSaveResult(null);
-      
-      // Call the saveBirthChart server action with the Clerk user ID
-      const result = await saveBirthChart(updatedChartData, user.id);
-      
-      // Update state with the result
-      setSaveResult(result);
-      
-      // Update the chart data with the saved title
-      if (result.success && updatedChartData.title) {
-        setChartData(prevData => {
-          if (!prevData) return null;
-          return {
-            ...prevData,
-            title: updatedChartData.title,
-            id: result.chartId
-          };
-        });
+      // Set ascendant if available
+      if (result.houseData?.Ascendant) {
+        const ascData = result.houseData.Ascendant;
+        const signIndex = Math.floor(ascData.cusp / 30) % 12;
+        chartData.ascendant = {
+          name: ascData.name || ZODIAC_SIGNS[signIndex],
+          symbol: ascData.symbol || ZODIAC_SYMBOLS[signIndex],
+          longitude: ascData.cusp,
+          degree: ascData.cusp % 30
+        };
       }
-    } catch (error) {
-      console.error("Error saving chart:", error);
-      setSaveResult({
-        success: false,
-        error: "An unexpected error occurred while saving the chart. Please try again."
-      });
+
+      setChartData(chartData);
+      setShowChart(true);
+    } catch (err) {
+      console.error('Error calculating chart:', err);
+      setError('An unexpected error occurred');
     } finally {
-      setSavingChart(false);
+      setLoading(false);
     }
   };
-  
-  // Handler for updating the chart title
-  const handleTitleChange = (title: string) => {
-    setChartData(prevData => {
-      if (!prevData) return null;
-      return {
-        ...prevData,
-        title
-      };
-    });
-  }
-  
+
+  const handleSaveChart = async () => {
+    if (!isSignedIn || !user) {
+      setSaveResult({
+        success: false,
+        error: "You must be logged in to save charts."
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const result = await saveBirthChart(chartData, user.id);
+      setSaveResult(result);
+    } catch (err) {
+      console.error('Error saving chart:', err);
+      setSaveResult({
+        success: false,
+        error: "Failed to save chart. Please try again."
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Load user's default chart or URL-specified chart on component mount
   useEffect(() => {
     const loadInitialChart = async () => {
@@ -783,472 +572,214 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
             return;
           }
 
-          // Fetch the chart with user ID
           const chartToLoad = await getBirthChartById(parseInt(chartIdFromUrl), parseInt(user.id));
-          
-          if (!chartToLoad) {
-            setSaveResult({
-              success: false,
-              error: "Chart not found or you don't have permission to view it."
+          if (chartToLoad) {
+            // Convert stored chart data to ChartData format
+            const planetData: ChartData['planets'] = {};
+            const houseData: ChartData['houses'] = {};
+            
+            // Convert planet positions
+            Object.entries(chartToLoad).forEach(([key, value]) => {
+              if (['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'].includes(key)) {
+                const planetInfo = typeof value === 'string' ? JSON.parse(value) : value;
+                if (planetInfo && typeof planetInfo === 'object') {
+                  planetData[key] = {
+                    name: planetInfo.name || 'Unknown',
+                    symbol: planetInfo.symbol || '?',
+                    longitude: planetInfo.longitude || 0,
+                    degree: planetInfo.degree || 0
+                  };
+                }
+              }
             });
-            return;
-          }
 
-          // Convert the stored chart to our ChartData format
-          // Parse planet positions from stored strings
-          const planets: Record<string, any> = {};
-          
-          // Helper function to parse stored position strings like "Aries 15.5°"
-          const parsePosition = (posStr: string | null): { name: string; symbol: string; longitude: number; degree: number } | null => {
-            if (!posStr) return null;
-            
-            // Extract sign name and degrees
-            const match = posStr.match(/([A-Za-z]+)\s+(\d+\.?\d*)°/);
-            if (!match) return null;
-            
-            const signName = match[1];
-            const degree = parseFloat(match[2]);
-            
-            // Find sign index
-            const signIndex = ZODIAC_SIGNS.findIndex(sign => 
-              sign.toLowerCase() === signName.toLowerCase()
-            );
-            
-            if (signIndex === -1) return null;
-            
-            // Calculate absolute longitude (0-360)
-            const longitude = signIndex * 30 + degree;
-            
-            return {
-              name: ZODIAC_SIGNS[signIndex],
-              symbol: ZODIAC_SYMBOLS[signIndex],
-              longitude,
-              degree
+            // Convert house positions
+            for (let i = 1; i <= 12; i++) {
+              const houseKey = `house${i}`;
+              const houseInfo = chartToLoad[houseKey];
+              if (houseInfo) {
+                const parsedHouse = typeof houseInfo === 'string' ? JSON.parse(houseInfo) : houseInfo;
+                houseData[houseKey] = {
+                  cusp: parsedHouse.cusp || 0,
+                  name: parsedHouse.name || 'Unknown',
+                  symbol: parsedHouse.symbol || '?',
+                  degree: parsedHouse.degree || 0
+                };
+              }
+            }
+
+            // Parse ascendant
+            const ascendantInfo = typeof chartToLoad.ascendant === 'string' 
+              ? JSON.parse(chartToLoad.ascendant)
+              : chartToLoad.ascendant;
+
+            const convertedChart: ChartData = {
+              title: chartToLoad.name || 'Birth Chart',
+              date: chartToLoad.birthDate ? new Date(chartToLoad.birthDate).toLocaleDateString() : undefined,
+              time: chartToLoad.birthTime || undefined,
+              location: chartToLoad.birthPlace || undefined,
+              planets: planetData,
+              houses: houseData,
+              ascendant: ascendantInfo || {
+                name: 'Aries',
+                symbol: '♈',
+                longitude: 0,
+                degree: 0
+              },
+              id: chartToLoad.id
             };
-          };
-          
-          // Add planets
-          if (chartToLoad.sun) planets.sun = parsePosition(chartToLoad.sun);
-          if (chartToLoad.moon) planets.moon = parsePosition(chartToLoad.moon);
-          if (chartToLoad.mercury) planets.mercury = parsePosition(chartToLoad.mercury);
-          if (chartToLoad.venus) planets.venus = parsePosition(chartToLoad.venus);
-          if (chartToLoad.mars) planets.mars = parsePosition(chartToLoad.mars);
-          if (chartToLoad.jupiter) planets.jupiter = parsePosition(chartToLoad.jupiter);
-          if (chartToLoad.saturn) planets.saturn = parsePosition(chartToLoad.saturn);
-          if (chartToLoad.uranus) planets.uranus = parsePosition(chartToLoad.uranus);
-          if (chartToLoad.neptune) planets.neptune = parsePosition(chartToLoad.neptune);
-          if (chartToLoad.pluto) planets.pluto = parsePosition(chartToLoad.pluto);
-          
-          // Parse ascendant
-          const ascendant = parsePosition(chartToLoad.ascendant) || { 
-            name: 'Unknown', symbol: '?', longitude: 0, degree: 0 
-          };
-          
-          const convertedChart: ChartData = {
-            title: chartToLoad.name,
-            date: new Date(chartToLoad.birthDate).toLocaleDateString(),
-            time: chartToLoad.birthTime,
-            location: chartToLoad.birthPlace,
-            planets,
-            houses: chartToLoad.houses as any || {},
-            aspects: chartToLoad.aspects as any || [],
-            ascendant,
-            id: chartToLoad.id,
-          };
-          
-          // Set the chart data
-          setChartData(convertedChart);
-          
-          // If no chart was loaded but we have a date and time, show the current chart
-          if (!chartToLoad && !date && !time) {
-            // Get the current date and time
-            const now = new Date();
-            setDate(`${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`);
-            setTime(now.toLocaleTimeString());
+            
+            setChartData(convertedChart);
           }
-        } catch (error) {
-          console.error("Error loading chart:", error);
-          setSaveResult({
-            success: false,
-            error: "Failed to load chart. Please try again."
-          });
+        } catch (err) {
+          console.error('Error loading chart:', err);
+          setError('Failed to load chart');
         } finally {
           setLoadingStoredChart(false);
-          setInitialLoadDone(true);
         }
-      } else {
-        setInitialLoadDone(true);
+      } else if (isSignedIn && user) {
+        try {
+          setLoadingStoredChart(true);
+          const defaultChart = await getDefaultChart(parseInt(user.id));
+          if (defaultChart) {
+            // Convert default chart using the same conversion logic
+            const planetData: ChartData['planets'] = {};
+            const houseData: ChartData['houses'] = {};
+            
+            // Convert planet positions
+            Object.entries(defaultChart).forEach(([key, value]) => {
+              if (['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'].includes(key)) {
+                const planetInfo = typeof value === 'string' ? JSON.parse(value) : value;
+                if (planetInfo && typeof planetInfo === 'object') {
+                  planetData[key] = {
+                    name: planetInfo.name || 'Unknown',
+                    symbol: planetInfo.symbol || '?',
+                    longitude: planetInfo.longitude || 0,
+                    degree: planetInfo.degree || 0
+                  };
+                }
+              }
+            });
+
+            const convertedChart: ChartData = {
+              title: defaultChart.name || 'Birth Chart',
+              date: defaultChart.birthDate ? new Date(defaultChart.birthDate).toLocaleDateString() : undefined,
+              time: defaultChart.birthTime || undefined,
+              location: defaultChart.birthPlace || undefined,
+              planets: planetData,
+              houses: houseData,
+              ascendant: {
+                name: 'Aries',
+                symbol: '♈',
+                longitude: 0,
+                degree: 0
+              },
+              id: defaultChart.id
+            };
+            
+            setChartData(convertedChart);
+          }
+        } catch (err) {
+          console.error('Error loading default chart:', err);
+        } finally {
+          setLoadingStoredChart(false);
+        }
       }
     };
 
     loadInitialChart();
-  }, [chartIdFromUrl, isLoaded, isSignedIn, user]);
-  
-  // Handler for selecting a saved chart
-  const handleSelectChart = async (chartId: number) => {
-    try {
-      if (!isSignedIn || !user) {
-        setSaveResult({
-          success: false,
-          error: "You must be logged in to view saved charts."
-        });
-        return;
-      }
-
-      setLoadingStoredChart(true);
-      setSelectedChartId(chartId);
-      setSaveResult(null); // Clear any previous save results
-      
-      // Fetch the saved chart from the database with user ID
-      const savedChart = await getBirthChartById(chartId, parseInt(user.id));
-      
-      if (!savedChart) {
-        console.error('Chart not found');
-        setSaveResult({
-          success: false,
-          error: "Chart not found or you don't have permission to view it."
-        });
-        return;
-      }
-      
-      // Convert the stored chart to our ChartData format
-      // Parse planet positions from stored strings
-      const planets: Record<string, any> = {};
-      
-      // Helper function to parse stored position strings like "Aries 15.5°"
-      const parsePosition = (posStr: string | null): { name: string; symbol: string; longitude: number; degree: number } | null => {
-        if (!posStr) return null;
-        
-        // Extract sign name and degrees
-        const match = posStr.match(/([A-Za-z]+)\s+(\d+\.?\d*)°/);
-        if (!match) return null;
-        
-        const signName = match[1];
-        const degree = parseFloat(match[2]);
-        
-        // Find sign index
-        const signIndex = ZODIAC_SIGNS.findIndex(sign => 
-          sign.toLowerCase() === signName.toLowerCase()
-        );
-        
-        if (signIndex === -1) return null;
-        
-        // Calculate absolute longitude (0-360)
-        const longitude = signIndex * 30 + degree;
-        
-        // Create proper zodiac symbol
-        const symbol = ZODIAC_SYMBOLS[signIndex];
-        
-        return {
-          name: ZODIAC_SIGNS[signIndex],
-          symbol,
-          longitude,
-          degree
-        };
-      };
-      
-      // Add planets
-      if (savedChart.sun) planets.sun = parsePosition(savedChart.sun);
-      if (savedChart.moon) planets.moon = parsePosition(savedChart.moon);
-      if (savedChart.mercury) planets.mercury = parsePosition(savedChart.mercury);
-      if (savedChart.venus) planets.venus = parsePosition(savedChart.venus);
-      if (savedChart.mars) planets.mars = parsePosition(savedChart.mars);
-      if (savedChart.jupiter) planets.jupiter = parsePosition(savedChart.jupiter);
-      if (savedChart.saturn) planets.saturn = parsePosition(savedChart.saturn);
-      if (savedChart.uranus) planets.uranus = parsePosition(savedChart.uranus);
-      if (savedChart.neptune) planets.neptune = parsePosition(savedChart.neptune);
-      if (savedChart.pluto) planets.pluto = parsePosition(savedChart.pluto);
-      if (savedChart.northnode) planets.northnode = parsePosition(savedChart.northnode);
-      if (savedChart.southnode) planets.southnode = parsePosition(savedChart.southnode);
-      if (savedChart.lilith) planets.lilith = parsePosition(savedChart.lilith);
-
-      
-     
-      // Parse ascendant
-      const ascendant = parsePosition(savedChart.ascendant) || { 
-        name: 'Unknown', symbol: ZODIAC_SYMBOLS[0], longitude: 0, degree: 0 
-      };
-      
-      // Parse midheaven if available
-      if (savedChart.midheaven) {
-        planets.midheaven = parsePosition(savedChart.midheaven);
-      }
-      
-      const convertedChart: ChartData = {
-        title: savedChart.name,
-        date: new Date(savedChart.birthDate).toLocaleDateString(),
-        time: savedChart.birthTime,
-        location: savedChart.birthPlace,
-        planets,
-        houses: savedChart.houses as any || {},
-        aspects: savedChart.aspects as any || [],
-        ascendant,
-        id: savedChart.id,
-      };
-      
-      // Set chart data and show the chart
-      setChartData(convertedChart);
-      setShowChart(true);
-      
-      // Also update the form fields to match the chart data
-      // This helps if user wants to make adjustments to the saved chart
-      const birthDate = new Date(savedChart.birthDate);
-      setDate(`${birthDate.getDate().toString().padStart(2, '0')}.${(birthDate.getMonth() + 1).toString().padStart(2, '0')}.${birthDate.getFullYear()}`);
-      setTime(savedChart.birthTime);
-      setLocation(savedChart.birthPlace);
-      
-      // Scroll the chart into view
-      setTimeout(() => {
-        const chartElement = document.getElementById('chart-display');
-        if (chartElement) {
-          chartElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-      
-    } catch (error) {
-      console.error('Error loading saved chart:', error);
-      setSaveResult({
-        success: false,
-        error: "Failed to load chart. Please try again."
-      });
-    } finally {
-      setLoadingStoredChart(false);
-    }
-  }
+  }, [isLoaded, isSignedIn, user, chartIdFromUrl]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Birth Chart Calculator</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-8">
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Calculate New Chart</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="date">Date (DD.MM.YYYY)</Label>
-                  <Input 
-                    id="date" 
-                    placeholder="08.10.1995"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Format: 08.10.1995 (Day.Month.Year)</p>
-                </div>
-                
-                <div>
-                  <Label htmlFor="time">Time (HH:MM)</Label>
-                  <Input 
-                    id="time" 
-                    placeholder="19:56"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Format: 19:56 (24-hour format, local time for the location)</p>
-                </div>
-                
-                <div>
-                  <Label htmlFor="location">Birth Location</Label>
-                  <Input 
-                    id="location" 
-                    placeholder={locationLoading ? "Detecting your location..." : "Enter your birth location"}
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    required
-                    disabled={locationLoading}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {locationLoading 
-                      ? "Getting your current location..." 
-                      : "Enter city name, optionally with state/country (e.g., \"New York, NY\" or \"Paris, France\")"}
-                  </p>
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={loading}
-                >
-                  {loading ? 'Processing...' : 'Calculate Birth Chart'}
-                </Button>
-              </div>
-            </form>
-          </Card>
-          
-          {/* Saved Charts Section */}
-          <div className="mt-8">
-            {isSignedIn ? (
-              <SavedBirthCharts userId={parseInt(user.id)} onSelectChart={handleSelectChart} />
-            ) : (
-              <Card className="p-6 text-center">
-                <p className="text-gray-400">Please log in to view and save your birth charts.</p>
-              </Card>
-            )}
-          </div>
-        </div>
-        
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Results</h2>
-          {result ? (
-            <>
-              {result.error && (
-                <div className="bg-red-900/50 border border-red-600 rounded-md p-3 mb-4">
-                  <p className="text-red-200 font-medium">{result.error}</p>
-                  <p className="text-gray-300 text-xs mt-2">
-                    This could be due to missing libraries or configuration issues with the Swiss Ephemeris.
-                  </p>
-                </div>
-              )}
-              
-              <div className="bg-black p-4 rounded-md border border-gray-700 h-[500px] overflow-auto">
-                <pre className="font-mono text-sm whitespace-pre-wrap">
-                  {result.output.split('\n').map((line, index) => {
-                    // Display headers in cyan
-                    if (line.includes('----') || line.startsWith('Date:') || line.startsWith('Time:') || line.startsWith('Location:')) {
-                      return <div key={index} className="text-cyan-400 font-bold">{line}</div>;
-                    }
-                    // Display planet data in green
-                    else if (line.match(/^(Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|Chiron|Node|Apogee)/)) {
-                      return <div key={index} className="text-green-400">{line}</div>;
-                    }
-                    // Display errors in red
-                    else if (line.toLowerCase().includes('error') || line.toLowerCase().includes('illegal')) {
-                      return <div key={index} className="text-red-400">{line}</div>;
-                    }
-                    // Regular output
-                    return <div key={index} className="text-gray-300">{line}</div>;
-                  })}
-                </pre>
-              </div>
-              
-              {/* Always show button for testing */}
-              {result.output && !showChart && (
-                <div className="mt-4">
-                  <Button 
-                    onClick={handleShowChart}
-                    className="w-full bg-indigo-700 hover:bg-indigo-600"
-                  >
-                    Generate Natal Chart
-                  </Button>
-                </div>
-              )}
-              
-              {showChart && (
-                <div id="chart-display" className="mt-6 rounded-lg overflow-hidden">
-                  <h2 className="text-xl font-semibold mb-2">Natal Chart</h2>
-                  
-                  {saveResult && (
-                    <div className={`mb-4 p-3 rounded ${saveResult.success ? 'bg-green-900/50 border border-green-600' : 'bg-red-900/50 border border-red-600'}`}>
-                      {saveResult.success ? (
-                        <p className="text-green-200">Chart saved successfully! Chart ID: {saveResult.chartId}</p>
-                      ) : (
-                        <p className="text-red-200">{saveResult.error || "Failed to save chart."}</p>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-center">
-                    <ZodiacWheel 
-                      chartData={chartData || {
-                        planets: (() => {
-                          // Combine planet and point data
-                          const combinedData: Record<string, any> = {};
-                          
-                          // Add planet data if available
-                          if (Object.keys(planetData).length > 0) {
-                            Object.entries(planetData).forEach(([key, value]) => {
-                              combinedData[key] = value;
-                            });
-                          }
-                          
-                          // Add point data if available
-                          if (Object.keys(pointData).length > 0) {
-                            Object.entries(pointData).forEach(([key, value]) => {
-                              combinedData[key] = value;
-                            });
-                          }
-                          
-                          // Return combined data or defaults if empty
-                          return Object.keys(combinedData).length > 0 ? combinedData : {
-                            sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 },
-                            moon: { name: 'Taurus', symbol: '♉', longitude: 45, degree: 15 },
-                            mercury: { name: 'Gemini', symbol: '♊', longitude: 75, degree: 15 },
-                          };
-                        })(),
-                        houses: Object.keys(houseData).length > 0 ? 
-                          // Convert house format to match what ZodiacWheel expects
-                          Object.entries(houseData)
-                            .filter(([key]) => key.startsWith('House '))
-                            .reduce((acc, [key, value]) => {
-                              const houseNum = parseInt(key.replace('House ', ''));
-                              if (!isNaN(houseNum) && houseNum >= 1 && houseNum <= 12) {
-                                const houseKey = `house${houseNum}`;
-                                acc[houseKey] = {
-                                  cusp: (value as any).longitude,
-                                  name: (value as any).sign,
-                                  symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf((value as any).sign)),
-                                  degree: (value as any).degree,
-                                  longitude: (value as any).longitude
-                                };
-                              }
-                              return acc;
-                            }, {} as Record<string, any>) : 
-                          // Default houses if none provided
-                          {
-                            house1: { cusp: 0, name: 'Aries', symbol: '♈', degree: 0 },
-                            house2: { cusp: 30, name: 'Taurus', symbol: '♉', degree: 0 },
-                            house3: { cusp: 60, name: 'Gemini', symbol: '♊', degree: 0 },
-                            house4: { cusp: 90, name: 'Cancer', symbol: '♋', degree: 0 },
-                            house5: { cusp: 120, name: 'Leo', symbol: '♌', degree: 0 },
-                            house6: { cusp: 150, name: 'Virgo', symbol: '♍', degree: 0 },
-                            house7: { cusp: 180, name: 'Libra', symbol: '♎', degree: 0 },
-                            house8: { cusp: 210, name: 'Scorpio', symbol: '♏', degree: 0 },
-                            house9: { cusp: 240, name: 'Sagittarius', symbol: '♐', degree: 0 },
-                            house10: { cusp: 270, name: 'Capricorn', symbol: '♑', degree: 0 },
-                            house11: { cusp: 300, name: 'Aquarius', symbol: '♒', degree: 0 },
-                            house12: { cusp: 330, name: 'Pisces', symbol: '♓', degree: 0 },
-                          },
-                        ascendant: houseData['Ascendant'] ? {
-                          name: houseData['Ascendant'].sign,
-                          symbol: getZodiacSymbol(ZODIAC_SIGNS.indexOf(houseData['Ascendant'].sign)),
-                          longitude: houseData['Ascendant'].longitude,
-                          degree: houseData['Ascendant'].degree
-                        } : { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
-                        date: date,
-                        time: time,
-                        location: location,
-                        title: `Birth Chart - ${date}`,
-                      } as ChartData} 
-                      width={600} 
-                      height={600}
-                      onSaveChart={isSignedIn ? handleSaveChart : undefined}
-                      onTitleChange={handleTitleChange}
-                    />
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-gray-500 italic">
-              Results will appear here after you run a query.
+    <div className="container mx-auto p-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="date">Date of Birth</Label>
+              <Input
+                id="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                placeholder="MM/DD/YYYY"
+                disabled={loading}
+              />
             </div>
-          )}
+            <div>
+              <Label htmlFor="time">Time of Birth</Label>
+              <Input
+                id="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                placeholder="HH:MM AM/PM"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <Label htmlFor="location">Location of Birth</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="City, Country"
+                disabled={loading}
+              />
+            </div>
+            <Button onClick={handleCalculate} disabled={loading}>
+              {loading ? 'Calculating...' : 'Calculate Chart'}
+            </Button>
+          </div>
         </Card>
+
+        {showChart && chartData && (
+          <Card className="p-4">
+            <div className="flex flex-col items-center space-y-4">
+              <ZodiacWheel chartData={chartData} width={600} height={600} />
+              <SignedIn>
+                <Button onClick={handleSaveChart} disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Chart'}
+                </Button>
+              </SignedIn>
+            </div>
+          </Card>
+        )}
+
+        {error && (
+          <div className="col-span-2">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <span className="block sm:inline">{error}</span>
+            </div>
+          </div>
+        )}
+
+        {saveResult && (
+          <div className="col-span-2">
+            <div className={`${saveResult.success ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700'} px-4 py-3 rounded relative`} role="alert">
+              <span className="block sm:inline">
+                {saveResult.success ? 'Chart saved successfully!' : saveResult.error}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
-      
+
+      <SignedIn>
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4">Your Saved Charts</h2>
+          <SavedBirthCharts userId={user ? parseInt(user.id) : undefined} />
+        </div>
+      </SignedIn>
     </div>
-  )
+  );
 }
 
-export default function SwissEphPage() {
+export default function BirthChartPage() {
+  const searchParams = useSearchParams();
+  const chartId = searchParams.get('chartId');
+
   return (
-    <Suspense fallback={<div className="container mx-auto px-4 py-8">Loading chart data...</div>}>
-      <ChartParamsWrapper>
-        {({ chartIdFromUrl }) => <SwissEphContent chartIdFromUrl={chartIdFromUrl} />}
-      </ChartParamsWrapper>
+    <Suspense fallback={<div>Loading...</div>}>
+      <SwissEphContent chartIdFromUrl={chartId} />
     </Suspense>
   );
 }
