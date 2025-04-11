@@ -417,7 +417,7 @@ export const querySwissEph = async (params: {
     console.log(timeZoneInfo.offsetHours)
     
     // Store the timezone offset information separately to pass to the ephemeris calculation
-    const timeZoneOffsetSeconds = geocodedLocation.timeZone.utcOffset;
+    const timeZoneOffsetSeconds = geocodedLocation.timeZone?.utcOffset ?? 0;
     
     console.log(`Input local time: ${year}-${month}-${day} ${hour}:${minute}:${second}`);
     console.log(`Timezone offset: ${offsetHours} hours, ${offsetMinutes} minutes (${totalOffsetMinutes} minutes total)`);
