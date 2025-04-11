@@ -18,17 +18,25 @@ import { useState } from "react";
 export default function Astrology() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (formData: FormData) => {
     try {
+      setIsSubmitting(true);
+      setError(null);
+      
       const result = await addUser(formData);
+      
       if (result.success) {
         router.push('/success');
       } else {
         setError(result.error || 'Failed to submit form');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      console.error('Form submission error:', err);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -58,7 +66,7 @@ export default function Astrology() {
 
       <section className="min-h-screen flex items-center row-span-2 justify-center text-center text-balance flex-col gap-8 px-9">
           <form action={handleSubmit}>
-          <CardWithForm></CardWithForm>
+            <CardWithForm disabled={isSubmitting} />
           </form>
       </section>
 
@@ -201,7 +209,7 @@ export default function Astrology() {
 
       <section className="min-h-screen flex items-center row-span-2 justify-center text-center text-balance flex-col gap-8 px-9">
           <form action={handleSubmit}>
-          <CardWithForm></CardWithForm>
+            <CardWithForm disabled={isSubmitting} />
           </form>
       </section>
       

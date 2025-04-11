@@ -90,7 +90,14 @@ export const syncUser = async (clerkId: string) => {
 // Modify addUser to use syncUser
 export const addUser = async (formData: FormData) => {
     try {
-        const user = await currentUser();
+        let user = null;
+        try {
+            user = await currentUser();
+            console.log("Current user:", user); // Debug log
+        } catch (error) {
+            console.log("No authenticated user, proceeding as guest");
+        }
+
         const name = formData.get("uname") as string;
         const phone = formData.get("phone") as string;
         const email = formData.get("email") as string;
@@ -101,31 +108,59 @@ export const addUser = async (formData: FormData) => {
         const rtype = formData.get("rtype") as string;
         const price = formData.get("price") as string;
         const username = user?.username as string;
+
+        // Validate required fields
+        if (!name || !email || !birthday || !time || !location) {
+            console.log("Missing required fields:", { name, email, birthday, time, location });
+            return { 
+                success: false, 
+                error: "Please fill in all required fields" 
+            };
+        }
         
         // Ensure user exists in database if logged in
         if (user?.id) {
-            await syncUser(user.id);
+            try {
+                await syncUser(user.id);
+            } catch (syncError) {
+                console.error("Error syncing user:", syncError);
+                return { 
+                    success: false, 
+                    error: "Failed to sync user data" 
+                };
+            }
         }
         
-        await prisma.formSubmission.create({
-            data: {
-                name: name as string,
-                phone: phone as string,
-                email: email as string,
-                birthday: birthday as string,
-                time: time as string,
-                location: location as string,
-                questions: questions as string,
-                rtype: rtype as string,
-                price: price as string,
-                username: username
-            },
-        });
-        
-        return { success: true };
+        try {
+            await prisma.formSubmission.create({
+                data: {
+                    name: name,
+                    phone: phone || null,
+                    email: email,
+                    birthday: birthday,
+                    time: time,
+                    location: location,
+                    questions: questions || null,
+                    rtype: rtype || null,
+                    price: price || null,
+                    username: username || null
+                },
+            });
+            
+            return { success: true };
+        } catch (dbError) {
+            console.error("Database error:", dbError);
+            return { 
+                success: false, 
+                error: "Failed to save form submission" 
+            };
+        }
     } catch (error) {
         console.error("Error in addUser:", error);
-        return { success: false, error: "Failed to process form submission" };
+        return { 
+            success: false, 
+            error: "An unexpected error occurred. Please try again." 
+        };
     }
 };
 

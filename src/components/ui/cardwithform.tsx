@@ -1,8 +1,6 @@
 "use client";
 import * as React from "react"
 
-
-
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -25,17 +23,11 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 
-export function CardWithForm() {
-  
-  
-    
-        
-          
-        
-   
-       
-  
- 
+interface CardWithFormProps {
+  disabled?: boolean;
+}
+
+export function CardWithForm({ disabled = false }: CardWithFormProps) {
   return (
     <Card className="w-[350px]">
       <CardHeader>
@@ -43,35 +35,34 @@ export function CardWithForm() {
         <CardDescription></CardDescription>
       </CardHeader>
       <CardContent>
-          
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="uname">Name</Label>
-              <Input id="uname" name="uname" placeholder="" required/>
+              <Input id="uname" name="uname" placeholder="" required disabled={disabled}/>
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="phone">Phone number</Label>
-              <Input id="phone" name="phone" placeholder="" required/>
+              <Input id="phone" name="phone" placeholder="" required disabled={disabled}/>
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" placeholder="" required/>
+              <Input id="email" name="email" placeholder="" required disabled={disabled}/>
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="birthday">Date of birth</Label>
-              <Input id="birthday" name="birthday" placeholder="MM/DD/YYYY" required/>
+              <Input id="birthday" name="birthday" placeholder="MM/DD/YYYY" required disabled={disabled}/>
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="time">Time of birth</Label>
-              <Input id="time" name="time" placeholder="12:00 pm" />
+              <Input id="time" name="time" placeholder="12:00 pm" disabled={disabled}/>
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="location">Location of birth</Label>
-              <Input id="location" name="location" placeholder="City, State/District, Country"/>
+              <Input id="location" name="location" placeholder="City, State/District, Country" disabled={disabled}/>
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="rtype">Select a reading</Label>
-              <Select name="rtype">
+              <Select name="rtype" disabled={disabled}>
               <SelectTrigger className="">
         <SelectValue placeholder="" />
       </SelectTrigger>
@@ -89,7 +80,7 @@ export function CardWithForm() {
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="price">Select a price tier</Label>
-              <Select name="price">
+              <Select name="price" disabled={disabled}>
               <SelectTrigger className="">
         <SelectValue placeholder="" />
       </SelectTrigger>
@@ -106,14 +97,14 @@ export function CardWithForm() {
           
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="questions">What questions do you have?</Label>
-              <Textarea id="questions" name="questions" ></Textarea> 
+              <Textarea id="questions" name="questions" disabled={disabled}></Textarea> 
             </div>
             <div className="flex flex-col space-y-1.5">
-              <Button type="submit">Submit</Button>
+              <Button type="submit" disabled={disabled}>
+                {disabled ? "Submitting..." : "Submit"}
+              </Button>
               </div>
           </div>
-          
-        
       </CardContent>
       <CardFooter className="flex flex-col space-y-1.5">
       </CardFooter>
