@@ -1105,44 +1105,23 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
       };
     }
 
-    // Helper function to safely format planet data
+    // Helper function to format planet data
     const formatPlanetData = (planet: any) => {
       if (!planet) return null;
       
-      // Debug logging
-      console.log('Formatting planet data:', planet);
-      
-      // Handle both direct degree values and nested structures
-      let name = '';
-      let degree = 0;
-      
-      if (typeof planet === 'object') {
-        name = planet.name || planet.sign || '';
-        // Handle different degree formats
-        if (typeof planet.degree === 'number') {
-          degree = planet.degree;
-        } else if (typeof planet.position === 'number') {
-          degree = planet.position;
-        } else if (typeof planet.longitude === 'number') {
-          degree = planet.longitude % 30; // Convert longitude to degree within sign
-        }
-      } else if (typeof planet === 'string') {
-        // Try to parse string format like "Aries 15.5°"
-        const match = planet.match(/(\w+)\s+(\d+\.?\d*)°?/);
-        if (match) {
-          name = match[1];
-          degree = parseFloat(match[2]);
-        }
+      // If planet is already in string format (e.g., "Aries 15.5°"), return as is
+      if (typeof planet === 'string') {
+        return planet;
       }
       
-      // Ensure we have valid numbers
-      degree = isNaN(degree) ? 0 : degree;
+      // Handle planet object format
+      if (typeof planet === 'object') {
+        const name = planet.name || '';
+        const degree = planet.degree || 0;
+        return `${name} ${degree}°`;
+      }
       
-      // Round to 1 decimal place for display
-      const roundedDegree = Math.round(degree * 10) / 10;
-      
-      console.log('Formatted result:', `${name} ${roundedDegree}°`);
-      return `${name} ${roundedDegree}°`;
+      return null;
     };
     
     // Create the birth chart in the database
@@ -1164,8 +1143,8 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
         uranus: formatPlanetData(chartData.planets?.uranus),
         neptune: formatPlanetData(chartData.planets?.neptune),
         pluto: formatPlanetData(chartData.planets?.pluto),
-        northnode: formatPlanetData(chartData.points?.northnode) || formatPlanetData(chartData.planets?.northnode) || null,
-        southnode: formatPlanetData(chartData.points?.southnode) || formatPlanetData(chartData.planets?.southnode) || null,
+        northnode: formatPlanetData(chartData.planets?.northnode) || formatPlanetData(chartData.planets?.trueNode),
+        southnode: formatPlanetData(chartData.planets?.southnode),
         chiron: formatPlanetData(chartData.planets?.chiron),
         lilith: formatPlanetData(chartData.planets?.lilith),
         houses: chartData.houses || {},
