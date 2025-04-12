@@ -37,6 +37,11 @@ type BirthChart = {
   ascendant: string | null;
   houses: any; // Allow any type for JSON fields
   aspects: any; // Allow any type for JSON fields
+  northnode: string | null;
+  southnode: string | null;
+  lilith: string | null;
+  midheaven: string | null;
+  chiron: string | null;
 };
 
 type SavedChartProps = {
@@ -136,6 +141,13 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
       if (chart.neptune) planets.neptune = parsePosition(chart.neptune);
       if (chart.pluto) planets.pluto = parsePosition(chart.pluto);
       
+      // Add points
+      if (chart.northnode) planets.northnode = parsePosition(chart.northnode);
+      if (chart.southnode) planets.southnode = parsePosition(chart.southnode);
+      if (chart.lilith) planets.lilith = parsePosition(chart.lilith);
+      if (chart.midheaven) planets.midheaven = parsePosition(chart.midheaven);
+      if (chart.chiron) planets.chiron = parsePosition(chart.chiron);
+      
       // Parse ascendant
       const ascendant = parsePosition(chart.ascendant) || { 
         name: 'Unknown', symbol: '?', longitude: 0, degree: 0 
@@ -215,8 +227,8 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
           <div className="flex justify-center">
             <ZodiacWheel 
               chartData={chartData} 
-              width={400} 
-              height={400}
+              width={600} 
+              height={600}
               onSaveChart={() => {}} // No-op since we're just viewing
               onTitleChange={() => {}} // No-op since we're just viewing
             />
