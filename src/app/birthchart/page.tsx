@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { querySwissEph, saveBirthChart, getBirthChartById, getDefaultChart } from '../../actions'
 import { ZodiacWheel, type ChartData, exportChartAsImage } from '@/components/ui/zodiacwheel'
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator'
+import { useUser } from '@clerk/nextjs'
 
 // Helper function to parse JavaScript Ephemeris output into chart data
 function parseSwissEphOutput(output: string): ChartData {
@@ -711,8 +712,18 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       setSavingChart(true);
       setSaveResult(null);
       
-      // Call the saveBirthChart server action with a default user ID
-      const result = await saveBirthChart(updatedChartData, "0");
+      // Get the current user's ID from Clerk
+      const { user } = useUser();
+      if (!user) {
+        setSaveResult({
+          success: false,
+          error: "You must be logged in to save a chart."
+        });
+        return;
+      }
+      
+      // Call the saveBirthChart server action with the actual user ID
+      const result = await saveBirthChart(updatedChartData, user.id);
       
       // Update state with the result
       setSaveResult(result);
