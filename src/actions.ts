@@ -1066,19 +1066,16 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
       };
     }
 
-    // Verify user exists
-    console.log('Looking up user with ID:', userId);
+    // Verify user exists - only check by clerkId since we're using Clerk authentication
+    console.log('Looking up user with Clerk ID:', userId);
     const user = await prisma.user.findFirst({
       where: { 
-        OR: [
-          { id: parseInt(userId) },
-          { clerkId: userId }
-        ]
+        clerkId: userId
       }
     });
 
     if (!user) {
-      console.error('User not found for ID:', userId);
+      console.error('User not found for Clerk ID:', userId);
       return {
         success: false,
         error: "User not found. Please log in again."
