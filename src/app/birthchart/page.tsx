@@ -639,9 +639,10 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
     for (const key in planetData) {
       if (planetData[key]) {
         planets[key] = {
-          ...planetData[key],
-          degree: parseFloat(planetData[key].degree) || 0,
-          symbol: planetSymbols[key] || planetData[key].symbol
+          name: planetData[key].name || ZODIAC_SIGNS[Math.floor(planetData[key].longitude / 30)],
+          symbol: planetSymbols[key] || planetData[key].symbol,
+          longitude: planetData[key].longitude,
+          degree: planetData[key].degree || planetData[key].longitude % 30
         };
       }
     }
@@ -649,9 +650,10 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
     for (const key in pointData) {
       if (pointData[key]) {
         planets[key] = {
-          ...pointData[key],
-          degree: parseFloat(pointData[key].degree) || 0,
-          symbol: planetSymbols[key] || pointData[key].symbol
+          name: pointData[key].name || ZODIAC_SIGNS[Math.floor(pointData[key].longitude / 30)],
+          symbol: planetSymbols[key] || pointData[key].symbol,
+          longitude: pointData[key].longitude,
+          degree: pointData[key].degree || pointData[key].longitude % 30
         };
       }
     }
