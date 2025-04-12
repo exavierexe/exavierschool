@@ -452,6 +452,9 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   console.log("Current date")
   console.log(currentDate)
   
+  // Get the current user's ID from Clerk at the component level
+  const { user } = useUser();
+  
   // Format date in DD.MM.YYYY format
   const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}.${(currentDate.getMonth() + 1).toString().padStart(2, '0')}.${currentDate.getFullYear()}`;
   console.log(formattedDate)
@@ -712,8 +715,6 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       setSavingChart(true);
       setSaveResult(null);
       
-      // Get the current user's ID from Clerk
-      const { user } = useUser();
       if (!user) {
         setSaveResult({
           success: false,
