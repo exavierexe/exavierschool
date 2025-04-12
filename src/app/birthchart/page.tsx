@@ -786,8 +786,8 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         try {
           setLoadingStoredChart(true);
 
-          // Fetch the chart with default user ID
-          const chartToLoad = await getBirthChartById(parseInt(chartIdFromUrl), 0);
+          // Fetch the chart with the current user's ID
+          const chartToLoad = await getBirthChartById(parseInt(chartIdFromUrl), user?.id || '');
           
           if (!chartToLoad) {
             setSaveResult({
