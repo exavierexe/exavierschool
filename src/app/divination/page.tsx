@@ -15,7 +15,9 @@ type TarotCard = {
   position: string;
   description: string;
   reversed?: boolean;
-  [key: string]: any; // For any additional properties
+  id: number;
+  image: string;
+  [key: string]: any;
 };
 
 // Type for tarot reading data
@@ -189,22 +191,10 @@ export default function Divination() {
           
           {/* Viewing a specific reading */}
           {viewingReading && (
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-medium text-purple-400">{viewingReading.name}</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setViewingReading(null)}
-                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                >
-                  Back to All Readings
-                </Button>
-              </div>
-              
-              <Card className="bg-gradient-to-br from-gray-900 to-black border-gray-700">
-                <CardHeader>
-                  <CardTitle>{viewingReading.name}</CardTitle>
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+              <Card className="w-full max-w-4xl bg-gradient-to-br from-gray-900 to-black border-gray-700">
+                <CardHeader className="border-b border-gray-800">
+                  <CardTitle className="text-2xl">{viewingReading.name}</CardTitle>
                   <CardDescription>
                     {formatSpreadType(viewingReading.spreadType)} • {formatDate(viewingReading.createdAt)}
                   </CardDescription>
@@ -221,12 +211,25 @@ export default function Divination() {
                     <h4 className="text-sm font-medium text-purple-400 mb-2">Cards:</h4>
                     <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                       {viewingReading.cards.map((card: TarotCard, i) => (
-                        <div key={i} className="bg-black bg-opacity-50 rounded-lg p-3 border border-gray-800">
-                          <div className="font-medium text-gray-200">{card.position}</div>
-                          <div className="text-sm text-gray-400 mt-1">{card.description}</div>
-                          {card.reversed && (
-                            <div className="text-xs text-orange-500 mt-1 italic">Reversed</div>
-                          )}
+                        <div key={i} className="space-y-2">
+                          <div className="relative">
+                            <Image 
+                              src={`/tarot/tarot${card.id}.png`} 
+                              alt={card.position}
+                              width={150}
+                              height={250}
+                              className={`rounded-lg border border-gray-700 shadow-lg ${card.reversed ? 'transform rotate-180' : ''}`}
+                            />
+                            <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white px-2 py-1 text-xs rounded-tl-lg rounded-br-lg">
+                              {card.position}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm text-gray-300">{card.description}</p>
+                            {card.reversed && (
+                              <p className="text-xs text-orange-500 mt-1 italic">Reversed</p>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -243,15 +246,11 @@ export default function Divination() {
                 </CardContent>
                 <CardFooter className="flex justify-end">
                   <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={() => {
-                      handleDeleteReading(viewingReading.id);
-                      setViewingReading(null);
-                    }}
-                    disabled={isDeleting === viewingReading.id}
+                    variant="outline" 
+                    onClick={() => setViewingReading(null)}
+                    className="border-gray-700 text-gray-300 hover:bg-gray-800"
                   >
-                    {isDeleting === viewingReading.id ? "Deleting..." : "Delete Reading"}
+                    Close
                   </Button>
                 </CardFooter>
               </Card>
@@ -289,15 +288,23 @@ export default function Divination() {
                           </div>
                         )}
                         
-                        <div className="flex flex-wrap gap-1 mt-1">
+                        <div className="grid grid-cols-3 gap-2 mt-2">
                           {reading.cards.slice(0, 3).map((card: TarotCard, i) => (
-                            <div key={i} className="px-2 py-1 bg-black bg-opacity-50 rounded text-xs text-gray-300">
-                              {card.position}
-                              {card.reversed && ' (R)'}
+                            <div key={i} className="relative">
+                              <Image 
+                                src={`/tarot/tarot${card.id}.png`} 
+                                alt={card.position}
+                                width={80}
+                                height={140}
+                                className={`rounded-lg border border-gray-700 ${card.reversed ? 'transform rotate-180' : ''}`}
+                              />
+                              <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white px-1 py-0.5 text-xs rounded-tl-lg rounded-br-lg">
+                                {card.position}
+                              </div>
                             </div>
                           ))}
                           {reading.cards.length > 3 && (
-                            <div className="px-2 py-1 bg-black bg-opacity-50 rounded text-xs text-gray-400">
+                            <div className="flex items-center justify-center bg-black bg-opacity-50 rounded-lg text-xs text-gray-400">
                               +{reading.cards.length - 3} more
                             </div>
                           )}
