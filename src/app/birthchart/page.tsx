@@ -556,7 +556,6 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   const [selectedChartId, setSelectedChartId] = useState<number | null>(null)
   const [loadingStoredChart, setLoadingStoredChart] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
-  const [viewingSavedChart, setViewingSavedChart] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -894,7 +893,6 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       setLoadingStoredChart(true);
       setSelectedChartId(chartId);
       setSaveResult(null); // Clear any previous save results
-      setViewingSavedChart(true); // Set viewing saved chart flag
       
       if (!user) {
         setSaveResult({
@@ -966,7 +964,9 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       if (savedChart.northnode) planets.northnode = parsePosition(savedChart.northnode);
       if (savedChart.southnode) planets.southnode = parsePosition(savedChart.southnode);
       if (savedChart.lilith) planets.lilith = parsePosition(savedChart.lilith);
+
       
+     
       // Parse ascendant
       const ascendant = parsePosition(savedChart.ascendant) || { 
         name: 'Unknown', symbol: ZODIAC_SYMBOLS[0], longitude: 0, degree: 0 
@@ -1089,9 +1089,9 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Results</h2>
-          {result || viewingSavedChart ? (
+          {result ? (
             <>
-              {result?.error && (
+              {result.error && (
                 <div className="bg-red-900/50 border border-red-600 rounded-md p-3 mb-4">
                   <p className="text-red-200 font-medium">{result.error}</p>
                   <p className="text-gray-300 text-xs mt-2">
@@ -1100,31 +1100,29 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                 </div>
               )}
               
-              {result && (
-                <div className="bg-black p-4 rounded-md border border-gray-700 h-[500px] overflow-auto">
-                  <pre className="font-mono text-sm whitespace-pre-wrap">
-                    {result.output.split('\n').map((line, index) => {
-                      // Display headers in cyan
-                      if (line.includes('----') || line.startsWith('Date:') || line.startsWith('Time:') || line.startsWith('Location:')) {
-                        return <div key={index} className="text-cyan-400 font-bold">{line}</div>;
-                      }
-                      // Display planet data in green
-                      else if (line.match(/^(Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|Chiron|Node|Apogee)/)) {
-                        return <div key={index} className="text-green-400">{line}</div>;
-                      }
-                      // Display errors in red
-                      else if (line.toLowerCase().includes('error') || line.toLowerCase().includes('illegal')) {
-                        return <div key={index} className="text-red-400">{line}</div>;
-                      }
-                      // Regular output
-                      return <div key={index} className="text-gray-300">{line}</div>;
-                    })}
-                  </pre>
-                </div>
-              )}
+              <div className="bg-black p-4 rounded-md border border-gray-700 h-[500px] overflow-auto">
+                <pre className="font-mono text-sm whitespace-pre-wrap">
+                  {result.output.split('\n').map((line, index) => {
+                    // Display headers in cyan
+                    if (line.includes('----') || line.startsWith('Date:') || line.startsWith('Time:') || line.startsWith('Location:')) {
+                      return <div key={index} className="text-cyan-400 font-bold">{line}</div>;
+                    }
+                    // Display planet data in green
+                    else if (line.match(/^(Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|Chiron|Node|Apogee)/)) {
+                      return <div key={index} className="text-green-400">{line}</div>;
+                    }
+                    // Display errors in red
+                    else if (line.toLowerCase().includes('error') || line.toLowerCase().includes('illegal')) {
+                      return <div key={index} className="text-red-400">{line}</div>;
+                    }
+                    // Regular output
+                    return <div key={index} className="text-gray-300">{line}</div>;
+                  })}
+                </pre>
+              </div>
               
-              {/* Show button for new calculations */}
-              {result?.output && !showChart && (
+              {/* Always show button for testing */}
+              {result.output && !showChart && (
                 <div className="mt-4">
                   <Button 
                     onClick={handleShowChart}
@@ -1135,7 +1133,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                 </div>
               )}
               
-              {(showChart || viewingSavedChart) && (
+              {showChart && (
                 <div id="chart-display" className="mt-6 rounded-lg overflow-hidden">
                   <h2 className="text-xl font-semibold mb-2">Natal Chart</h2>
                   
@@ -1232,7 +1230,7 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
             </>
           ) : (
             <div className="text-gray-500 italic">
-              Results will appear here after you run a query or select a saved chart.
+              Results will appear here after you run a query.
             </div>
           )}
         </Card>
