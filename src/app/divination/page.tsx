@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import pointblankzodiac from "./tarot/pointblankzodiac.jpg";
 import { saveTarotReading, getTarotReadings, deleteTarotReading } from "@/actions";
 import { Button } from "@/components/ui/button";
@@ -31,24 +32,28 @@ type TarotReadingType = {
 };
 
 export default function Divination() {
+  const { user } = useUser();
   const [showReadings, setShowReadings] = useState(false);
   const [savedReadings, setSavedReadings] = useState<TarotReadingType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [viewingReading, setViewingReading] = useState<TarotReadingType | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Load saved readings when the component mounts or showReadings is toggled
   useEffect(() => {
-    if (showReadings) {
+    if (showReadings && user?.id) {
       loadReadings();
     }
-  }, [showReadings]);
+  }, [showReadings, user?.id]);
 
   // Load saved tarot readings
   const loadReadings = async () => {
+    if (!user?.id) return;
+    
     setIsLoading(true);
     try {
-      const readings = await getTarotReadings();
+      const readings = await getTarotReadings(user.id);
       // Transform the readings to make sure cards is parsed correctly
       const parsedReadings = readings.map(reading => ({
         ...reading,
@@ -67,6 +72,10 @@ export default function Divination() {
 
   // Handle saving a new reading
   const handleSaveReading = async (reading: any) => {
+    if (!user?.id) {
+      return { success: false, error: "You must be logged in to save readings" };
+    }
+
     try {
       // Create a FormData object directly without using a constructor
       const formData = new FormData();
@@ -86,6 +95,9 @@ export default function Divination() {
         }
       }
       
+      // Add the user ID to the form data
+      formData.append("userId", user.id);
+      
       // Send the FormData to the server
       const result = await saveTarotReading(formData);
       
@@ -103,15 +115,23 @@ export default function Divination() {
 
   // Handle deleting a reading
   const handleDeleteReading = async (readingId: number) => {
+    if (!user?.id) {
+      setError("You must be logged in to delete readings");
+      return;
+    }
+
     setIsDeleting(readingId);
     try {
-      const result = await deleteTarotReading(readingId);
+      const result = await deleteTarotReading(readingId, user.id);
       if (result.success) {
         // Remove the deleted reading from the state
         setSavedReadings(savedReadings.filter(reading => reading.id !== readingId));
+      } else {
+        setError(result.error || "Failed to delete reading");
       }
     } catch (error) {
       console.error("Error deleting reading:", error);
+      setError("An unexpected error occurred while deleting the reading");
     } finally {
       setIsDeleting(null);
     }

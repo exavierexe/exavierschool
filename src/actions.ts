@@ -256,12 +256,22 @@ export const saveTarotReading = async (formData: FormData) => {
   }
 };
 
-// Get all tarot readings
-export const getTarotReadings = async (userId?: number) => {
+// Get all tarot readings for a specific user
+export const getTarotReadings = async (userId: string) => {
   try {
-    const where = userId ? { userId } : {};
+    // First find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      console.error("User not found for Clerk ID:", userId);
+      return [];
+    }
+
+    // Get readings for the found user
     const readings = await prisma.tarotReading.findMany({
-      where,
+      where: { userId: user.id },
       orderBy: { createdAt: 'desc' }
     });
     return readings;
@@ -272,10 +282,24 @@ export const getTarotReadings = async (userId?: number) => {
 };
 
 // Get a specific tarot reading by ID
-export const getTarotReadingById = async (readingId: number) => {
+export const getTarotReadingById = async (readingId: number, userId: string) => {
   try {
-    const reading = await prisma.tarotReading.findUnique({
-      where: { id: readingId }
+    // First find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      console.error("User not found for Clerk ID:", userId);
+      return null;
+    }
+
+    // Get the reading and verify it belongs to the user
+    const reading = await prisma.tarotReading.findFirst({
+      where: { 
+        id: readingId,
+        userId: user.id
+      }
     });
     return reading;
   } catch (error) {
@@ -285,11 +309,34 @@ export const getTarotReadingById = async (readingId: number) => {
 };
 
 // Delete a tarot reading
-export const deleteTarotReading = async (readingId: number) => {
+export const deleteTarotReading = async (readingId: number, userId: string) => {
   try {
+    // First find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      console.error("User not found for Clerk ID:", userId);
+      return { success: false, error: "User not found" };
+    }
+
+    // Verify the reading belongs to the user and delete it
+    const reading = await prisma.tarotReading.findFirst({
+      where: { 
+        id: readingId,
+        userId: user.id
+      }
+    });
+
+    if (!reading) {
+      return { success: false, error: "Reading not found or you don't have permission to delete it" };
+    }
+
     await prisma.tarotReading.delete({
       where: { id: readingId }
     });
+    
     revalidatePath('/divination');
     return { success: true };
   } catch (error) {
