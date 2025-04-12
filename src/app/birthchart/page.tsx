@@ -443,7 +443,8 @@ function getZodiacSymbol(signIndex: number): string {
 }
 
 function SavedChartsSection({ onSelectChart }: { onSelectChart: (chartId: number) => void }) {
-  return <SavedBirthCharts onSelectChart={onSelectChart} />;
+  const { user } = useUser();
+  return <SavedBirthCharts userId={user?.id} onSelectChart={onSelectChart} />;
 }
 
 function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) {
