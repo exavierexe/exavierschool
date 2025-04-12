@@ -2,17 +2,32 @@
 import Image from "next/image";
 import Link from "next/link";
 import { NavBar } from "@/components/ui/navbar";
-import { addUser } from "@/actions";
+import { addUser, syncUser } from "@/actions";
 import { Button } from "@/components/ui/button";
 import { CardWithForm } from "@/components/ui/cardwithform";
-import { SignedIn, SignedOut, SignUpButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignUpButton, useUser } from "@clerk/nextjs";
 import { ArrowRightIcon } from "lucide-react";
 import { hero } from "@/components/ui/heroimage";
-
+import { useEffect } from "react";
 
 import heroimage from "../public/visuals/heroimage.jpg";
 export default function Home() {
+  const { isLoaded, isSignedIn, user } = useUser();
 
+  // Sync user data when signed in
+  useEffect(() => {
+    const syncUserData = async () => {
+      if (!isLoaded || !user) return;
+
+      try {
+        await syncUser(user.id);
+      } catch (err) {
+        console.error('Error syncing user:', err);
+      }
+    };
+
+    syncUserData();
+  }, [user, isLoaded]);
 
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)] ">
