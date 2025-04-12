@@ -1040,7 +1040,17 @@ export async function determineTimeZone(longitude: number, latitude: number): Pr
 // Save a birth chart
 export const saveBirthChart = async (chartData: any, userId: string) => {
   try {
+    console.log('Attempting to save birth chart with data:', {
+      userId,
+      chartData: {
+        ...chartData,
+        planets: chartData.planets ? 'planets data present' : 'no planets data',
+        ascendant: chartData.ascendant ? 'ascendant data present' : 'no ascendant data'
+      }
+    });
+
     if (!chartData) {
+      console.error('No chart data provided');
       return {
         success: false,
         error: "Missing chart data."
@@ -1049,6 +1059,7 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
 
     // Validate user ID
     if (!userId) {
+      console.error('No user ID provided');
       return {
         success: false,
         error: "Invalid user ID. Please log in again."
@@ -1056,6 +1067,7 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
     }
 
     // Verify user exists
+    console.log('Looking up user with ID:', userId);
     const user = await prisma.user.findFirst({
       where: { 
         OR: [
@@ -1066,6 +1078,7 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
     });
 
     if (!user) {
+      console.error('User not found for ID:', userId);
       return {
         success: false,
         error: "User not found. Please log in again."
@@ -1078,6 +1091,7 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
     // If we have a date string, try to parse it
     if (chartData.date) {
       try {
+        console.log('Parsing birth date:', chartData.date);
         // Handle different date formats
         // DD.MM.YYYY format (like 08.10.1995)
         if (chartData.date.includes('.')) {
@@ -1088,6 +1102,7 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
         else if (chartData.date.includes('-')) {
           birthDate = new Date(chartData.date);
         }
+        console.log('Parsed birth date:', birthDate);
       } catch (error) {
         console.error("Error parsing birth date:", error);
         return {
@@ -1099,6 +1114,10 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
     
     // Validate required data
     if (!chartData.planets || !chartData.ascendant) {
+      console.error('Missing required chart data:', {
+        hasPlanets: !!chartData.planets,
+        hasAscendant: !!chartData.ascendant
+      });
       return {
         success: false,
         error: "Missing required chart data (planets or ascendant)."
@@ -1125,6 +1144,7 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
     };
     
     // Create the birth chart in the database
+    console.log('Creating birth chart in database...');
     const chart = await prisma.birthChart.create({
       data: {
         name: chartData.title || 'Birth Chart',
@@ -1153,6 +1173,7 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
       }
     });
     
+    console.log('Successfully created birth chart with ID:', chart.id);
     revalidatePath('/swisseph');
     return { success: true, chartId: chart.id };
   } catch (error) {

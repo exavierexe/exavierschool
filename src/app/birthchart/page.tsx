@@ -722,9 +722,25 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         });
         return;
       }
+
+      console.log('Saving chart with data:', {
+        userId: user.id,
+        chartData: {
+          title: updatedChartData.title,
+          date: updatedChartData.date,
+          time: updatedChartData.time,
+          location: updatedChartData.location,
+          planets: updatedChartData.planets ? 'planets data present' : 'no planets data',
+          ascendant: updatedChartData.ascendant ? 'ascendant data present' : 'no ascendant data',
+          houses: updatedChartData.houses ? 'houses data present' : 'no houses data',
+          aspects: updatedChartData.aspects ? 'aspects data present' : 'no aspects data'
+        }
+      });
       
       // Call the saveBirthChart server action with the actual user ID
       const result = await saveBirthChart(updatedChartData, user.id);
+      
+      console.log('Save result:', result);
       
       // Update state with the result
       setSaveResult(result);
