@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { getTarotReadings, deleteTarotReading } from '@/actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { getTarotReadings, deleteTarotReading } from '@/actions';
+import Image from 'next/image';
 
 type TarotReadingType = {
   id: number;
@@ -14,6 +14,7 @@ type TarotReadingType = {
   question: string | null;
   notes: string | null;
   createdAt: Date;
+  userId: number;
 };
 
 type SavedTarotReadingsProps = {
@@ -24,8 +25,8 @@ export function SavedTarotReadings({ userId }: SavedTarotReadingsProps) {
   const [readings, setReadings] = useState<TarotReadingType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedReading, setSelectedReading] = useState<TarotReadingType | null>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
-  const [viewingReading, setViewingReading] = useState<TarotReadingType | null>(null);
 
   // Load readings on component mount
   useEffect(() => {
@@ -54,16 +55,22 @@ export function SavedTarotReadings({ userId }: SavedTarotReadingsProps) {
     loadReadings();
   }, [userId]);
 
-  // Handle deleting a reading
   const handleDelete = async (readingId: number) => {
-    if (!userId) return;
-    
+    if (!userId) {
+      setError('You must be logged in to delete readings');
+      return;
+    }
+
+    setIsDeleting(readingId);
     try {
-      setIsDeleting(readingId);
-      await deleteTarotReading(readingId, userId);
-      setReadings(readings.filter(reading => reading.id !== readingId));
-      if (viewingReading?.id === readingId) {
-        setViewingReading(null);
+      const result = await deleteTarotReading(readingId, userId);
+      if (result.success) {
+        setReadings(readings.filter(reading => reading.id !== readingId));
+        if (selectedReading?.id === readingId) {
+          setSelectedReading(null);
+        }
+      } else {
+        setError(result.error || 'Failed to delete reading');
       }
     } catch (err) {
       console.error('Error deleting reading:', err);
@@ -106,12 +113,8 @@ export function SavedTarotReadings({ userId }: SavedTarotReadingsProps) {
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Saved Readings</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {readings.map(reading => (
-          <Card 
-            key={reading.id} 
-            className="bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => setViewingReading(reading)}
-          >
+        {readings.map((reading) => (
+          <Card key={reading.id} className="bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle className="text-lg">{reading.name}</CardTitle>
               <CardDescription>
@@ -148,46 +151,57 @@ export function SavedTarotReadings({ userId }: SavedTarotReadingsProps) {
                 )}
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">Click to view details</span>
-              <Button 
-                variant="destructive" 
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(reading.id);
-                }}
-                disabled={isDeleting === reading.id}
+            <CardFooter className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedReading(reading)}
+                className="border-gray-700 text-gray-300 hover:bg-gray-800"
               >
-                {isDeleting === reading.id ? "Deleting..." : "Delete"}
+                View
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDelete(reading.id)}
+                disabled={isDeleting === reading.id}
+                className="text-xs"
+              >
+                {isDeleting === reading.id ? 'Deleting...' : 'Delete'}
               </Button>
             </CardFooter>
           </Card>
         ))}
       </div>
 
-      {/* Viewing a specific reading */}
-      {viewingReading && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+      {selectedReading && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
           <Card className="w-full max-w-4xl bg-gradient-to-br from-gray-900 to-black border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-2xl">{viewingReading.name}</CardTitle>
-              <CardDescription>
-                {formatSpreadType(viewingReading.spreadType)} • {formatDate(viewingReading.createdAt)}
-              </CardDescription>
+            <CardHeader className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-2xl">{selectedReading.name}</CardTitle>
+                <CardDescription>
+                  {formatSpreadType(selectedReading.spreadType)} • {formatDate(selectedReading.createdAt)}
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => setSelectedReading(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                Close
+              </Button>
             </CardHeader>
             <CardContent className="space-y-6">
-              {viewingReading.question && (
+              {selectedReading.question && (
                 <div>
-                  <h4 className="text-sm font-medium text-purple-400 mb-2">Your Question:</h4>
-                  <p className="text-gray-300">{viewingReading.question}</p>
+                  <h4 className="text-sm font-medium text-purple-400 mb-2">Question:</h4>
+                  <p className="text-gray-300">{selectedReading.question}</p>
                 </div>
               )}
               
               <div>
                 <h4 className="text-sm font-medium text-purple-400 mb-2">Cards:</h4>
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                  {viewingReading.cards.map((card, i) => (
+                  {selectedReading.cards.map((card, i) => (
                     <div key={i} className="space-y-2">
                       <div className="relative">
                         <Image 
@@ -212,24 +226,15 @@ export function SavedTarotReadings({ userId }: SavedTarotReadingsProps) {
                 </div>
               </div>
               
-              {viewingReading.notes && (
+              {selectedReading.notes && (
                 <div>
                   <h4 className="text-sm font-medium text-purple-400">Your Notes:</h4>
                   <div className="bg-black bg-opacity-50 p-3 rounded-lg border border-gray-800 mt-1">
-                    <p className="text-gray-300 whitespace-pre-wrap">{viewingReading.notes}</p>
+                    <p className="text-gray-300 whitespace-pre-wrap">{selectedReading.notes}</p>
                   </div>
                 </div>
               )}
             </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button 
-                variant="outline" 
-                onClick={() => setViewingReading(null)}
-                className="border-gray-700 text-gray-300 hover:bg-gray-800"
-              >
-                Close
-              </Button>
-            </CardFooter>
           </Card>
         </div>
       )}
