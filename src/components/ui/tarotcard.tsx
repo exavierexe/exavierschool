@@ -195,7 +195,8 @@ export function TarotCard({ onSaveReading }: TarotCardProps) {
     
     // Black & White
     "Internal world. Yin. Feminine.",
-    "External world. Yang. Masculine."
+    "External world. Yang. Masculine.",
+    "Internal and external unison. Resolved paradox. Black flash."
   ];
   
   // State

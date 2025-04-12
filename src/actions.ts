@@ -203,8 +203,6 @@ export async function syncUserAction() {
 
 // Tarot Reading Actions
 
-
-
 // Save a tarot reading
 export const saveTarotReading = async (formData: FormData) => {
   try {
@@ -213,7 +211,7 @@ export const saveTarotReading = async (formData: FormData) => {
     const cards = formData.get("cards") as string;
     const question = formData.get("question") as string;
     const notes = formData.get("notes") as string;
-    const userId = formData.get("userId") as string;
+    const clerkId = formData.get("userId") as string;
     
     if (!name || !spreadType || !cards) {
       return {
@@ -232,6 +230,19 @@ export const saveTarotReading = async (formData: FormData) => {
         error: "Invalid card data format."
       };
     }
+
+    // Find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { clerkId }
+    });
+
+    if (!user) {
+      console.error("User not found for Clerk ID:", clerkId);
+      return {
+        success: false,
+        error: "User not found. Please try logging in again."
+      };
+    }
     
     // Create the tarot reading in the database
     const reading = await prisma.tarotReading.create({
@@ -241,7 +252,7 @@ export const saveTarotReading = async (formData: FormData) => {
         cards: parsedCards,
         question: question || null,
         notes: notes || null,
-        userId: userId ? parseInt(userId) : null,
+        userId: user.id,
       }
     });
     
