@@ -80,11 +80,8 @@ export default function AccountPage() {
         if (isSignedIn && user) {
           setLoadingCharts(true);
           
-          // Parse user ID from Clerk user object
-          const userId = parseInt(user.id);
-          if (isNaN(userId)) {
-            throw new Error('Invalid user ID');
-          }
+          // Use the Clerk user ID directly
+          const userId = user.id;
           
           // Load user's saved charts
           const savedCharts = await getBirthCharts(userId);
@@ -157,10 +154,7 @@ export default function AccountPage() {
       }
       
       // Call the server action to save the default chart preference
-      const userId = parseInt(user.id);
-      if (isNaN(userId)) {
-        throw new Error('Invalid user ID');
-      }
+      const userId = user.id;
       
       const result = await setDefaultChart(userId, chartId);
       
@@ -332,7 +326,7 @@ export default function AccountPage() {
                 ) : (
                   <div className="space-y-6">
                     <SavedBirthCharts 
-                      userId={user?.id ? parseInt(user.id) : undefined} 
+                      userId={user?.id} 
                       onSelectChart={(chartId) => {
                         router.push(`/swisseph?chart=${chartId}`);
                       }}

@@ -1183,14 +1183,27 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
 };
 
 // Get all birth charts for a user
-export const getBirthCharts = async (userId: number) => {
+export const getBirthCharts = async (userId: string) => {
   try {
     if (!userId) {
       return [];
     }
 
+    // First, find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { 
+        clerkId: userId
+      }
+    });
+
+    if (!user) {
+      console.error('User not found for Clerk ID:', userId);
+      return [];
+    }
+
+    // Then fetch their charts using the database user ID
     const charts = await prisma.birthChart.findMany({
-      where: { userId },
+      where: { userId: user.id },
       orderBy: { createdAt: 'desc' }
     });
     return charts;
@@ -1220,58 +1233,20 @@ export const getBirthChartById = async (chartId: number, userId: number) => {
   }
 };
 
-// Set a user's default chart
-export const setDefaultChart = async (userId: number, chartId: number) => {
-  try {
-    if (!userId || !chartId) {
-      return {
-        success: false,
-        error: "Missing user ID or chart ID."
-      };
-    }
-    
-    // First, verify that the chart belongs to this user
-    const chart = await prisma.birthChart.findFirst({
-      where: {
-        id: chartId,
-        userId: userId
-      }
-    });
-    
-    if (!chart) {
-      return {
-        success: false,
-        error: "Chart not found or does not belong to this user."
-      };
-    }
-    
-    // Update user's default chart preference
-    // Note: You would need to add a defaultChartId field to your User model
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        defaultChartId: chartId
-      }
-    });
-    
-    return { success: true };
-  } catch (error) {
-    console.error("Error setting default chart:", error);
-    return { 
-      success: false, 
-      error: "Failed to set default chart. Please try again."
-    };
-  }
-};
-
 // Get a user's default chart
-export const getDefaultChart = async (userId: number) => {
+export const getDefaultChart = async (userId: string) => {
   try {
     if (!userId) return null;
     
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { defaultChartId: true }
+    // First, find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { 
+        clerkId: userId
+      },
+      select: { 
+        id: true,
+        defaultChartId: true 
+      }
     });
     
     if (!user || !user.defaultChartId) return null;
@@ -1284,6 +1259,63 @@ export const getDefaultChart = async (userId: number) => {
   } catch (error) {
     console.error("Error fetching default chart:", error);
     return null;
+  }
+};
+
+// Set a user's default chart
+export const setDefaultChart = async (userId: string, chartId: number) => {
+  try {
+    if (!userId || !chartId) {
+      return {
+        success: false,
+        error: "Missing user ID or chart ID."
+      };
+    }
+    
+    // First, find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { 
+        clerkId: userId
+      }
+    });
+    
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found."
+      };
+    }
+    
+    // Then verify that the chart belongs to this user
+    const chart = await prisma.birthChart.findFirst({
+      where: {
+        id: chartId,
+        userId: user.id
+      }
+    });
+    
+    if (!chart) {
+      return {
+        success: false,
+        error: "Chart not found or does not belong to this user."
+      };
+    }
+    
+    // Update user's default chart preference
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        defaultChartId: chartId
+      }
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting default chart:", error);
+    return { 
+      success: false, 
+      error: "Failed to set default chart. Please try again."
+    };
   }
 };
 

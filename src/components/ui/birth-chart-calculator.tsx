@@ -6,7 +6,7 @@ import { Button } from './button';
 import { getBirthCharts, deleteBirthChart } from '@/actions';
 
 type SavedChartProps = {
-  userId?: number;
+  userId?: string;
   onSelectChart?: (chartId: number) => void;
 };
 
