@@ -1214,18 +1214,28 @@ export const getBirthCharts = async (userId: string) => {
 };
 
 // Get a specific birth chart by ID
-export const getBirthChartById = async (chartId: number, userId: number) => {
+export const getBirthChartById = async (chartId: number, userId: string) => {
   try {
-    if (!userId) {
+    // First find the user by their Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { 
+        clerkId: userId
+      }
+    });
+
+    if (!user) {
+      console.error('User not found for Clerk ID:', userId);
       return null;
     }
 
+    // Then find the chart using the database user ID
     const chart = await prisma.birthChart.findFirst({
-      where: { 
+      where: {
         id: chartId,
-        userId: userId
+        userId: user.id
       }
     });
+
     return chart;
   } catch (error) {
     console.error("Error fetching birth chart:", error);

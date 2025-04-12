@@ -894,8 +894,16 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       setSelectedChartId(chartId);
       setSaveResult(null); // Clear any previous save results
       
-      // Fetch the saved chart from the database with default user ID
-      const savedChart = await getBirthChartById(chartId, 0);
+      if (!user) {
+        setSaveResult({
+          success: false,
+          error: "You must be logged in to view saved charts."
+        });
+        return;
+      }
+      
+      // Fetch the saved chart from the database with the current user's ID
+      const savedChart = await getBirthChartById(chartId, user.id);
       
       if (!savedChart) {
         console.error('Chart not found');
