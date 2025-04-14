@@ -25,12 +25,12 @@ async function loadCitiesData(): Promise<any[]> {
   if (citiesCache) return citiesCache;
   
   try {
-    // In browser environment, use fetch to load the JSON file
+    // In browser environment, use fetch to load the JSON file directly
     if (typeof window !== 'undefined') {
       console.log('Loading cities data in browser environment');
       
-      // Use the API route to get the JSON data
-      const response = await fetch('/api/cities');
+      // Load the JSON file directly from the public directory
+      const response = await fetch('/cities.json');
       
       if (!response.ok) {
         console.error('Failed to load cities file:', response.statusText);
@@ -38,7 +38,7 @@ async function loadCitiesData(): Promise<any[]> {
       }
       
       const cities = await response.json();
-      console.log(`Loaded ${cities.length} cities from API`);
+      console.log(`Loaded ${cities.length} cities from JSON file`);
       
       // Cache the results for future calls
       citiesCache = cities;
