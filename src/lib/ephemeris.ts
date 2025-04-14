@@ -29,35 +29,12 @@ async function loadCitiesData(): Promise<any[]> {
     if (typeof window !== 'undefined') {
       console.log('Loading cities data in browser environment');
       
-      // Use absolute URL in production, relative in development
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? window.location.origin 
-        : '';
-      
-      // Add a cache-busting parameter to ensure we get fresh data
-      const cacheBuster = `?t=${Date.now()}`;
-      const response = await fetch(`${baseUrl}/worldcities.csv${cacheBuster}`);
+      // Use the API route to get the CSV data
+      const response = await fetch('/api/cities');
       
       if (!response.ok) {
         console.error('Failed to load cities file:', response.statusText);
-        // Try fallback to relative URL if absolute fails
-        const fallbackResponse = await fetch(`/worldcities.csv${cacheBuster}`);
-        if (!fallbackResponse.ok) {
-          throw new Error(`Failed to load cities file: ${response.statusText}`);
-        }
-        const csvText = await fallbackResponse.text();
-        
-        // Parse CSV data
-        const records = parse(csvText, {
-          columns: true,
-          skip_empty_lines: true
-        });
-        
-        console.log(`Loaded ${records.length} cities from fallback URL`);
-        
-        // Cache the results for future calls
-        citiesCache = records;
-        return records;
+        throw new Error(`Failed to load cities file: ${response.statusText}`);
       }
       
       const csvText = await response.text();
@@ -68,7 +45,7 @@ async function loadCitiesData(): Promise<any[]> {
         skip_empty_lines: true
       });
       
-      console.log(`Loaded ${records.length} cities from worldcities.csv in browser`);
+      console.log(`Loaded ${records.length} cities from API`);
       
       // Cache the results for future calls
       citiesCache = records;
