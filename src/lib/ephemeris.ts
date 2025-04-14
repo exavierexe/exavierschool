@@ -34,10 +34,32 @@ async function loadCitiesData(): Promise<any[]> {
         ? window.location.origin 
         : '';
       
-      const response = await fetch(`${baseUrl}/worldcities.csv`);
+      // Add a cache-busting parameter to ensure we get fresh data
+      const cacheBuster = `?t=${Date.now()}`;
+      const response = await fetch(`${baseUrl}/worldcities.csv${cacheBuster}`);
+      
       if (!response.ok) {
-        throw new Error(`Failed to load cities file: ${response.statusText}`);
+        console.error('Failed to load cities file:', response.statusText);
+        // Try fallback to relative URL if absolute fails
+        const fallbackResponse = await fetch(`/worldcities.csv${cacheBuster}`);
+        if (!fallbackResponse.ok) {
+          throw new Error(`Failed to load cities file: ${response.statusText}`);
+        }
+        const csvText = await fallbackResponse.text();
+        
+        // Parse CSV data
+        const records = parse(csvText, {
+          columns: true,
+          skip_empty_lines: true
+        });
+        
+        console.log(`Loaded ${records.length} cities from fallback URL`);
+        
+        // Cache the results for future calls
+        citiesCache = records;
+        return records;
       }
+      
       const csvText = await response.text();
       
       // Parse CSV data
