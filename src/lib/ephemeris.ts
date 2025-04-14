@@ -38,12 +38,21 @@ function loadCitiesData(): any[] {
     let fileContent;
     
     try {
+      // First try to read from the public directory
       fileContent = fs.readFileSync(csvPath, 'utf8');
     } catch (readError) {
-      console.warn('Could not read cities file:', readError);
-      const emptyArray: any[] = [];
-      citiesCache = emptyArray;
-      return emptyArray;
+      console.warn('Could not read cities file from public directory:', readError);
+      
+      // If that fails, try to read from the current directory
+      try {
+        const altPath = path.join(process.cwd(), 'worldcities.csv');
+        fileContent = fs.readFileSync(altPath, 'utf8');
+      } catch (altError) {
+        console.warn('Could not read cities file from current directory:', altError);
+        const emptyArray: any[] = [];
+        citiesCache = emptyArray;
+        return emptyArray;
+      }
     }
     
     // Parse CSV data
