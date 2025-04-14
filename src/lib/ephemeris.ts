@@ -21,18 +21,33 @@ let timeZonesCache: Map<string, any> | null = null;
 let countriesCache: Map<string, string> | null = null;
 
 // Helper function to load and parse the cities CSV file
-function loadCitiesData(): any[] {
+async function loadCitiesData(): Promise<any[]> {
   if (citiesCache) return citiesCache;
   
-  // Skip file operations in browser environment
-  if (typeof window !== 'undefined') {
-    console.log('Running in browser environment, skipping cities file loading');
-    const emptyArray: any[] = [];
-    citiesCache = emptyArray;
-    return emptyArray;
-  }
-  
   try {
+    // In browser environment, use fetch to load the CSV file
+    if (typeof window !== 'undefined') {
+      console.log('Loading cities data in browser environment');
+      const response = await fetch('/worldcities.csv');
+      if (!response.ok) {
+        throw new Error(`Failed to load cities file: ${response.statusText}`);
+      }
+      const csvText = await response.text();
+      
+      // Parse CSV data
+      const records = parse(csvText, {
+        columns: true,
+        skip_empty_lines: true
+      });
+      
+      console.log(`Loaded ${records.length} cities from worldcities.csv in browser`);
+      
+      // Cache the results for future calls
+      citiesCache = records;
+      return records;
+    }
+    
+    // In server environment, use file system
     const csvPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
     let fileContent;
     
@@ -51,7 +66,7 @@ function loadCitiesData(): any[] {
       skip_empty_lines: true
     });
     
-    console.log(`Loaded ${records.length} cities from worldcities.csv`);
+    console.log(`Loaded ${records.length} cities from worldcities.csv on server`);
     
     // Cache the results for future calls
     citiesCache = records;
@@ -60,6 +75,51 @@ function loadCitiesData(): any[] {
     console.error('Error loading cities data:', error);
     return [];
   }
+}
+
+// Helper function to normalize city names for comparison
+function normalizeCityName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/[^a-z0-9]/g, '') // Remove non-alphanumeric characters
+    .trim();
+}
+
+// Helper function to find city matches
+function findCityMatches(cities: any[], searchTerm: string, countryCode?: string): any[] {
+  const normalizedSearch = normalizeCityName(searchTerm);
+  const matches: any[] = [];
+  
+  for (const city of cities) {
+    // Normalize city names for comparison
+    const normalizedCity = normalizeCityName(city.city);
+    const normalizedCityAscii = normalizeCityName(city.city_ascii);
+    
+    // Check if the search term matches the city name
+    if (normalizedCity === normalizedSearch || 
+        normalizedCityAscii === normalizedSearch ||
+        normalizedCity.includes(normalizedSearch) ||
+        normalizedCityAscii.includes(normalizedSearch) ||
+        normalizedSearch.includes(normalizedCity) ||
+        normalizedSearch.includes(normalizedCityAscii)) {
+      
+      // If country code is provided, filter by it
+      if (!countryCode || city.iso2.toLowerCase() === countryCode.toLowerCase()) {
+        matches.push(city);
+      }
+    }
+  }
+  
+  // Sort by population (descending) to get major cities first
+  matches.sort((a, b) => {
+    const popA = parseInt(a.population) || 0;
+    const popB = parseInt(b.population) || 0;
+    return popB - popA;
+  });
+  
+  return matches;
 }
 
 // Helper function to load time zone data
@@ -718,7 +778,6 @@ export async function geocodeLocation(locationInput: string): Promise<{
       console.log(`Using direct coordinates: lat ${latitude}, lon ${longitude}`);
       
       // Find timezone for these coordinates
-      // Use a default country code 'US' when none is provided
       const timeZone = findTimeZone(latitude, longitude, 'US');
       
       return {
@@ -730,54 +789,13 @@ export async function geocodeLocation(locationInput: string): Promise<{
     }
     
     // Get city data from CSV
-    const cities = loadCitiesData();
+    const cities = await loadCitiesData();
     const searchTerms = locationInput.toLowerCase().trim().split(',').map(part => part.trim());
     const cityName = searchTerms[0]; // First part is assumed to be the city name
+    const countryCode = searchTerms.length > 1 ? searchTerms[1].trim() : undefined;
     
-    let matches: any[] = [];
-    
-    // Try exact match first (case insensitive)
-    matches = cities.filter(city => 
-      city.city_ascii.toLowerCase() === cityName || 
-      city.city.toLowerCase() === cityName
-    );
-    
-    // If no exact matches, try contains match
-    if (matches.length === 0) {
-      matches = cities.filter(city => 
-        city.city_ascii.toLowerCase().includes(cityName) || 
-        city.city.toLowerCase().includes(cityName) ||
-        cityName.includes(city.city_ascii.toLowerCase()) ||
-        cityName.includes(city.city.toLowerCase())
-      );
-    }
-    
-    // If we have country or state/province in the search, filter by that
-    if (matches.length > 0 && searchTerms.length > 1) {
-      const locationDetails = searchTerms.slice(1).join(' '); // Get everything after the city name
-      
-      // Filter by country or admin_name (state/province) if provided
-      const filteredMatches = matches.filter(city => 
-        city.country.toLowerCase().includes(locationDetails) || 
-        locationDetails.includes(city.country.toLowerCase()) ||
-        city.admin_name.toLowerCase().includes(locationDetails) ||
-        locationDetails.includes(city.admin_name.toLowerCase()) ||
-        city.iso2.toLowerCase() === locationDetails || 
-        city.iso3.toLowerCase() === locationDetails
-      );
-      
-      // If we found matches, use them; otherwise keep the original matches
-      if (filteredMatches.length > 0) {
-        matches = filteredMatches;
-      }
-    }
-    
-    // Sort by population (descending) to get major cities first
-    matches.sort((a, b) => {
-      const popA = parseInt(a.population) || 0;
-      const popB = parseInt(b.population) || 0;
-      return popB - popA;
-    });
+    // Find matches using the improved matching function
+    const matches = findCityMatches(cities, cityName, countryCode);
     
     // If we found matches, use the first one (highest population)
     if (matches.length > 0) {
