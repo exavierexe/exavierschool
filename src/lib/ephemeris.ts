@@ -33,7 +33,8 @@ function loadCitiesData(): any[] {
   }
   
   try {
-    const csvPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
+    // Use the correct path for serverless environment
+    const csvPath = path.join(process.cwd(), 'public', 'worldcities.csv');
     let fileContent;
     
     try {
