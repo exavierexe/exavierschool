@@ -20,16 +20,16 @@ let citiesCache: any[] | null = null;
 let timeZonesCache: Map<string, any> | null = null;
 let countriesCache: Map<string, string> | null = null;
 
-// Helper function to load and parse the cities CSV file
+// Helper function to load and parse the cities data
 async function loadCitiesData(): Promise<any[]> {
   if (citiesCache) return citiesCache;
   
   try {
-    // In browser environment, use fetch to load the CSV file
+    // In browser environment, use fetch to load the JSON file
     if (typeof window !== 'undefined') {
       console.log('Loading cities data in browser environment');
       
-      // Use the API route to get the CSV data
+      // Use the API route to get the JSON data
       const response = await fetch('/api/cities');
       
       if (!response.ok) {
@@ -37,27 +37,20 @@ async function loadCitiesData(): Promise<any[]> {
         throw new Error(`Failed to load cities file: ${response.statusText}`);
       }
       
-      const csvText = await response.text();
-      
-      // Parse CSV data
-      const records = parse(csvText, {
-        columns: true,
-        skip_empty_lines: true
-      });
-      
-      console.log(`Loaded ${records.length} cities from API`);
+      const cities = await response.json();
+      console.log(`Loaded ${cities.length} cities from API`);
       
       // Cache the results for future calls
-      citiesCache = records;
-      return records;
+      citiesCache = cities;
+      return cities;
     }
     
     // In server environment, use file system
-    const csvPath = path.join(process.cwd(), 'public', 'worldcities.csv');
+    const jsonPath = path.join(process.cwd(), 'public', 'cities.json');
     let fileContent;
     
     try {
-      fileContent = fs.readFileSync(csvPath, 'utf8');
+      fileContent = fs.readFileSync(jsonPath, 'utf8');
     } catch (readError) {
       console.warn('Could not read cities file:', readError);
       const emptyArray: any[] = [];
@@ -65,17 +58,13 @@ async function loadCitiesData(): Promise<any[]> {
       return emptyArray;
     }
     
-    // Parse CSV data
-    const records = parse(fileContent, {
-      columns: true,
-      skip_empty_lines: true
-    });
-    
-    console.log(`Loaded ${records.length} cities from worldcities.csv on server`);
+    // Parse JSON data
+    const cities = JSON.parse(fileContent);
+    console.log(`Loaded ${cities.length} cities from JSON file on server`);
     
     // Cache the results for future calls
-    citiesCache = records;
-    return records;
+    citiesCache = cities;
+    return cities;
   } catch (error) {
     console.error('Error loading cities data:', error);
     return [];

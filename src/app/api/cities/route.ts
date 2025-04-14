@@ -4,12 +4,12 @@ import fs from 'fs';
 
 export async function GET() {
   try {
-    const csvPath = path.join(process.cwd(), 'public', 'worldcities.csv');
-    const fileContent = fs.readFileSync(csvPath, 'utf8');
+    const jsonPath = path.join(process.cwd(), 'public', 'cities.json');
+    const fileContent = fs.readFileSync(jsonPath, 'utf8');
     
     return new NextResponse(fileContent, {
       headers: {
-        'Content-Type': 'text/csv',
+        'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=3600',
       },
     });
