@@ -49,9 +49,17 @@ function loadCitiesData(): any[] {
         fileContent = fs.readFileSync(altPath, 'utf8');
       } catch (altError) {
         console.warn('Could not read cities file from current directory:', altError);
-        const emptyArray: any[] = [];
-        citiesCache = emptyArray;
-        return emptyArray;
+        
+        // If both attempts fail, try to read from the src directory
+        try {
+          const srcPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
+          fileContent = fs.readFileSync(srcPath, 'utf8');
+        } catch (srcError) {
+          console.warn('Could not read cities file from src directory:', srcError);
+          const emptyArray: any[] = [];
+          citiesCache = emptyArray;
+          return emptyArray;
+        }
       }
     }
     
