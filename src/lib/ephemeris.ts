@@ -20,105 +20,46 @@ let citiesCache: any[] | null = null;
 let timeZonesCache: Map<string, any> | null = null;
 let countriesCache: Map<string, string> | null = null;
 
-// Helper function to load and parse the cities data
-async function loadCitiesData(): Promise<any[]> {
+// Helper function to load and parse the cities CSV file
+function loadCitiesData(): any[] {
   if (citiesCache) return citiesCache;
   
+  // Skip file operations in browser environment
+  if (typeof window !== 'undefined') {
+    console.log('Running in browser environment, skipping cities file loading');
+    const emptyArray: any[] = [];
+    citiesCache = emptyArray;
+    return emptyArray;
+  }
+  
   try {
-    // In browser environment, use fetch to load the JSON file directly
-    if (typeof window !== 'undefined') {
-      console.log('Loading cities data in browser environment');
-      
-      // Load the JSON file directly from the public directory
-      const response = await fetch('/cities.json');
-      
-      if (!response.ok) {
-        console.error('Failed to load cities file:', response.statusText);
-        throw new Error(`Failed to load cities file: ${response.statusText}`);
-      }
-      
-      const cities = await response.json();
-      console.log(`Loaded ${cities.length} cities from JSON file`);
-      
-      // Cache the results for future calls
-      citiesCache = cities;
-      return cities;
-    }
+    const csvPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
+    let fileContent;
     
-    // In server environment (including Vercel), use the public URL
     try {
-      // In Vercel's environment, we need to use the public URL
-      const baseUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
-      
-      const response = await fetch(`${baseUrl}/cities.json`);
-      if (!response.ok) {
-        throw new Error(`Failed to load cities file: ${response.statusText}`);
-      }
-      
-      const cities = await response.json();
-      console.log(`Loaded ${cities.length} cities from JSON file on server`);
-      
-      // Cache the results for future calls
-      citiesCache = cities;
-      return cities;
-    } catch (error) {
-      console.warn('Could not load cities file:', error);
-      // Return an empty array instead of throwing
+      fileContent = fs.readFileSync(csvPath, 'utf8');
+    } catch (readError) {
+      console.warn('Could not read cities file:', readError);
       const emptyArray: any[] = [];
       citiesCache = emptyArray;
       return emptyArray;
     }
+    
+    // Parse CSV data
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true
+    });
+    
+    console.log(`Loaded ${records.length} cities from worldcities.csv`);
+    
+    // Cache the results for future calls
+    citiesCache = records;
+    return records;
   } catch (error) {
     console.error('Error loading cities data:', error);
     return [];
   }
-}
-
-// Helper function to normalize city names for comparison
-function normalizeCityName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-    .replace(/[^a-z0-9]/g, '') // Remove non-alphanumeric characters
-    .trim();
-}
-
-// Helper function to find city matches
-function findCityMatches(cities: any[], searchTerm: string, countryCode?: string): any[] {
-  const normalizedSearch = normalizeCityName(searchTerm);
-  const matches: any[] = [];
-  
-  for (const city of cities) {
-    // Normalize city names for comparison
-    const normalizedCity = normalizeCityName(city.city);
-    const normalizedCityAscii = normalizeCityName(city.city_ascii);
-    
-    // Check if the search term matches the city name
-    if (normalizedCity === normalizedSearch || 
-        normalizedCityAscii === normalizedSearch ||
-        normalizedCity.includes(normalizedSearch) ||
-        normalizedCityAscii.includes(normalizedSearch) ||
-        normalizedSearch.includes(normalizedCity) ||
-        normalizedSearch.includes(normalizedCityAscii)) {
-      
-      // If country code is provided, filter by it
-      if (!countryCode || city.iso2.toLowerCase() === countryCode.toLowerCase()) {
-        matches.push(city);
-      }
-    }
-  }
-  
-  // Sort by population (descending) to get major cities first
-  matches.sort((a, b) => {
-    const popA = parseInt(a.population) || 0;
-    const popB = parseInt(b.population) || 0;
-    return popB - popA;
-  });
-  
-  return matches;
 }
 
 // Helper function to load time zone data
@@ -136,36 +77,205 @@ function loadTimeZoneData(): Map<string, any> {
   }
   
   try {
-    // In Vercel's environment, we can't access the file system directly
-    // Instead, we'll use a simplified timezone lookup based on country codes
-    const commonTimeZones: Record<string, { offset: number; name: string }> = {
-      'US': { offset: -5, name: 'America/New_York' },
-      'GB': { offset: 0, name: 'Europe/London' },
-      'JP': { offset: 9, name: 'Asia/Tokyo' },
-      'AU': { offset: 10, name: 'Australia/Sydney' },
-      'NZ': { offset: 12, name: 'Pacific/Auckland' },
-      'DE': { offset: 1, name: 'Europe/Berlin' },
-      'FR': { offset: 1, name: 'Europe/Paris' },
-      'IT': { offset: 1, name: 'Europe/Rome' },
-      'ES': { offset: 1, name: 'Europe/Madrid' },
-      'CA': { offset: -5, name: 'America/Toronto' },
-      'MX': { offset: -6, name: 'America/Mexico_City' },
-      'BR': { offset: -3, name: 'America/Sao_Paulo' },
-      'IN': { offset: 5.5, name: 'Asia/Kolkata' },
-      'CN': { offset: 8, name: 'Asia/Shanghai' },
-      'RU': { offset: 3, name: 'Europe/Moscow' }
-    };
+    const csvPath = path.join(process.cwd(), 'src', 'public', 'TimeZoneDB.csv', 'time_zone.csv');
+    let fileContent;
     
-    // Convert to Map format
-    for (const [code, data] of Object.entries(commonTimeZones)) {
-      timeZonesMap.set(code, {
-        zoneName: data.name,
-        utcOffset: data.offset * 3600, // Convert hours to seconds
-        isDst: false // Simplified, no DST handling
+    try {
+      fileContent = fs.readFileSync(csvPath, 'utf8');
+    } catch (readError) {
+      console.warn('Could not read timezone file:', readError);
+      timeZonesCache = timeZonesMap;
+      return timeZonesMap;
+    }
+    
+    // Parse CSV data
+    // Format: Zone_Name,Country_Code,Zone_Type,Start_Time,UTC_Offset,DST_Flag
+    const lines = fileContent.split('\n');
+    
+    // Process entries in reverse order to get the most recent entries first
+    // (TimeZoneDB entries are listed in chronological order)
+    const processedZones = new Set<string>();
+    
+    // First, count how many entries we have for each country code
+    // This helps us identify countries with multiple time zones
+    const countryCounts: Record<string, number> = {};
+    
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      
+      const parts = line.split(',');
+      if (parts.length < 4) continue;
+      
+      const zoneName = parts[0];
+      const countryCode = parts[1];
+      const zoneType = parts[2];  // LMT, GMT, UTC, EST, etc.
+      
+      // Skip historical Local Mean Time entries
+      if (zoneType === 'LMT') continue;
+      
+      // Count distinct zone names for each country
+      if (!processedZones.has(zoneName)) {
+        processedZones.add(zoneName);
+        countryCounts[countryCode] = (countryCounts[countryCode] || 0) + 1;
+      }
+    }
+    
+    // Reset for actual processing
+    processedZones.clear();
+    
+    // Process zones and add them to our map
+    // We need to identify the most recent time zone entry for each zone based on the current date
+    
+    // Current timestamp - but let's move it forward slightly to ensure we're using the most current rules
+    // This helps with DST transitions that might be upcoming
+    const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
+    const futureNow = now + (60 * 60 * 24 * 7); // Look ahead 1 week to catch upcoming DST changes
+    
+    // Store time zones by zone name
+    const zoneEntries: Record<string, any[]> = {};
+    
+    // First pass - collect all entries for each zone
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      
+      const parts = line.split(',');
+      if (parts.length < 6) continue;  // Need 6 columns for complete data
+      
+      const zoneName = parts[0];
+      const countryCode = parts[1];
+      const zoneType = parts[2];      // LMT, UTC, EST, EDT, etc.
+      const startTime = parseInt(parts[3]) || 0;  // Unix timestamp when this rule starts
+      const utcOffset = parseInt(parts[4]) || 0;  // UTC offset in seconds
+      const isDst = parseInt(parts[5]) === 1;     // 1 for DST, 0 for standard time
+      
+      // Skip historical Local Mean Time entries
+      if (zoneType === 'LMT') continue;
+      
+      // Add this entry to our collection for the zone
+      if (!zoneEntries[zoneName]) {
+        zoneEntries[zoneName] = [];
+      }
+      
+      zoneEntries[zoneName].push({
+        zoneName,
+        countryCode,
+        zoneType,
+        startTime,
+        utcOffset,
+        isDst,
+        isExclusive: countryCounts[countryCode] === 1
       });
     }
     
-    console.log(`Loaded ${timeZonesMap.size} common time zones`);
+    // Second pass - find the most current entry for each zone
+    for (const [zoneName, entries] of Object.entries(zoneEntries)) {
+      // Sort entries by start time (newest first)
+      entries.sort((a, b) => b.startTime - a.startTime);
+      
+      // Find the most recent entry that is applicable now
+      let currentEntry = null;
+      
+      for (const entry of entries) {
+        if (entry.startTime <= futureNow) {
+          currentEntry = entry;
+          break;
+        }
+      }
+      
+      // If we found a current entry, add it to our map
+      if (currentEntry) {
+        timeZonesMap.set(zoneName, {
+          zoneName: currentEntry.zoneName,
+          countryCode: currentEntry.countryCode,
+          zoneType: currentEntry.zoneType,
+          utcOffset: currentEntry.utcOffset,
+          isDst: currentEntry.isDst,
+          isExclusive: currentEntry.isExclusive
+        });
+        
+        // Log for debugging
+        if (!processedZones.has(zoneName)) {
+          processedZones.add(zoneName);
+          console.log(`Using timezone rule for ${zoneName}: ${currentEntry.zoneType}, offset ${currentEntry.utcOffset} seconds, DST: ${currentEntry.isDst ? 'Yes' : 'No'}`);
+        }
+      }
+    }
+    
+    // Add common aliases for convenience
+    const aliasMap: Record<string, string> = {
+      // US Time Zones
+      'America/New_York': 'US/Eastern',
+      'America/Los_Angeles': 'US/Pacific',
+      'America/Chicago': 'US/Central',
+      'America/Denver': 'US/Mountain',
+      'Pacific/Honolulu': 'US/Hawaii',
+      'America/Anchorage': 'US/Alaska',
+      
+      // Australian Time Zones
+      'Australia/Sydney': 'Australia/NSW',
+      'Australia/Melbourne': 'Australia/Victoria',
+      
+      // European Time Zones
+      'Europe/London': 'GB',
+      'Europe/Paris': 'Europe/France',
+      'Europe/Berlin': 'Europe/Germany',
+      
+      // Asia Time Zones
+      'Asia/Tokyo': 'Japan',
+      'Asia/Shanghai': 'China'
+    };
+    
+    // Create the aliases
+    for (const [canonicalName, alias] of Object.entries(aliasMap)) {
+      if (timeZonesMap.has(canonicalName)) {
+        const sourceData = timeZonesMap.get(canonicalName);
+        
+        timeZonesMap.set(alias, {
+          zoneName: alias,
+          countryCode: sourceData.countryCode,
+          zoneType: sourceData.zoneType,
+          utcOffset: sourceData.utcOffset,
+          isDst: sourceData.isDst,
+          isAlias: true,
+          canonicalName: canonicalName
+        });
+      }
+    }
+    
+    // Add special case for the most common Pacific locations
+    // Pacific/Auckland is particularly important to handle correctly for New Zealand
+    if (timeZonesMap.has('Pacific/Auckland')) {
+      const aucklandData = timeZonesMap.get('Pacific/Auckland');
+      console.log(`Pacific/Auckland timezone settings: offset ${aucklandData.utcOffset} seconds, DST: ${aucklandData.isDst ? 'Yes' : 'No'}`);
+      
+      // Add NZ as an alias for Pacific/Auckland
+      timeZonesMap.set('NZ', {
+        zoneName: 'NZ', 
+        countryCode: 'NZ',
+        zoneType: aucklandData.zoneType,
+        utcOffset: aucklandData.utcOffset,
+        isDst: aucklandData.isDst,
+        isAlias: true,
+        canonicalName: 'Pacific/Auckland'
+      });
+    }
+    
+    console.log(`Loaded ${timeZonesMap.size} time zones from TimeZoneDB (including aliases)`);
+    
+    // Debug output - show key sample zones
+    for (const country of ['US', 'GB', 'JP', 'AU', 'NZ']) {
+      console.log(`Sample timezones for ${country}:`);
+      let found = 0;
+      for (const [name, data] of timeZonesMap.entries()) {
+        if (data.countryCode === country && found < 2) {
+          found++;
+          console.log(`  ${name}: ${data.countryCode}, ${data.zoneType}, offset: ${data.utcOffset} seconds, DST: ${data.isDst ? 'Yes' : 'No'}`);
+        }
+      }
+    }
+    
     timeZonesCache = timeZonesMap;
     return timeZonesCache;
   } catch (error) {
@@ -608,6 +718,7 @@ export async function geocodeLocation(locationInput: string): Promise<{
       console.log(`Using direct coordinates: lat ${latitude}, lon ${longitude}`);
       
       // Find timezone for these coordinates
+      // Use a default country code 'US' when none is provided
       const timeZone = findTimeZone(latitude, longitude, 'US');
       
       return {
@@ -619,13 +730,54 @@ export async function geocodeLocation(locationInput: string): Promise<{
     }
     
     // Get city data from CSV
-    const cities = await loadCitiesData();
+    const cities = loadCitiesData();
     const searchTerms = locationInput.toLowerCase().trim().split(',').map(part => part.trim());
     const cityName = searchTerms[0]; // First part is assumed to be the city name
-    const countryCode = searchTerms.length > 1 ? searchTerms[1].trim() : undefined;
     
-    // Find matches using the improved matching function
-    const matches = findCityMatches(cities, cityName, countryCode);
+    let matches: any[] = [];
+    
+    // Try exact match first (case insensitive)
+    matches = cities.filter(city => 
+      city.city_ascii.toLowerCase() === cityName || 
+      city.city.toLowerCase() === cityName
+    );
+    
+    // If no exact matches, try contains match
+    if (matches.length === 0) {
+      matches = cities.filter(city => 
+        city.city_ascii.toLowerCase().includes(cityName) || 
+        city.city.toLowerCase().includes(cityName) ||
+        cityName.includes(city.city_ascii.toLowerCase()) ||
+        cityName.includes(city.city.toLowerCase())
+      );
+    }
+    
+    // If we have country or state/province in the search, filter by that
+    if (matches.length > 0 && searchTerms.length > 1) {
+      const locationDetails = searchTerms.slice(1).join(' '); // Get everything after the city name
+      
+      // Filter by country or admin_name (state/province) if provided
+      const filteredMatches = matches.filter(city => 
+        city.country.toLowerCase().includes(locationDetails) || 
+        locationDetails.includes(city.country.toLowerCase()) ||
+        city.admin_name.toLowerCase().includes(locationDetails) ||
+        locationDetails.includes(city.admin_name.toLowerCase()) ||
+        city.iso2.toLowerCase() === locationDetails || 
+        city.iso3.toLowerCase() === locationDetails
+      );
+      
+      // If we found matches, use them; otherwise keep the original matches
+      if (filteredMatches.length > 0) {
+        matches = filteredMatches;
+      }
+    }
+    
+    // Sort by population (descending) to get major cities first
+    matches.sort((a, b) => {
+      const popA = parseInt(a.population) || 0;
+      const popB = parseInt(b.population) || 0;
+      return popB - popA;
+    });
     
     // If we found matches, use the first one (highest population)
     if (matches.length > 0) {
