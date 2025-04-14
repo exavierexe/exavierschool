@@ -65,6 +65,7 @@ async function loadCitiesData(): Promise<any[]> {
       return cities;
     } catch (error) {
       console.warn('Could not load cities file:', error);
+      // Return an empty array instead of throwing
       const emptyArray: any[] = [];
       citiesCache = emptyArray;
       return emptyArray;
@@ -135,205 +136,36 @@ function loadTimeZoneData(): Map<string, any> {
   }
   
   try {
-    const csvPath = path.join(process.cwd(), 'src', 'public', 'TimeZoneDB.csv', 'time_zone.csv');
-    let fileContent;
-    
-    try {
-      fileContent = fs.readFileSync(csvPath, 'utf8');
-    } catch (readError) {
-      console.warn('Could not read timezone file:', readError);
-      timeZonesCache = timeZonesMap;
-      return timeZonesMap;
-    }
-    
-    // Parse CSV data
-    // Format: Zone_Name,Country_Code,Zone_Type,Start_Time,UTC_Offset,DST_Flag
-    const lines = fileContent.split('\n');
-    
-    // Process entries in reverse order to get the most recent entries first
-    // (TimeZoneDB entries are listed in chronological order)
-    const processedZones = new Set<string>();
-    
-    // First, count how many entries we have for each country code
-    // This helps us identify countries with multiple time zones
-    const countryCounts: Record<string, number> = {};
-    
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      if (!line.trim()) continue;
-      
-      const parts = line.split(',');
-      if (parts.length < 4) continue;
-      
-      const zoneName = parts[0];
-      const countryCode = parts[1];
-      const zoneType = parts[2];  // LMT, GMT, UTC, EST, etc.
-      
-      // Skip historical Local Mean Time entries
-      if (zoneType === 'LMT') continue;
-      
-      // Count distinct zone names for each country
-      if (!processedZones.has(zoneName)) {
-        processedZones.add(zoneName);
-        countryCounts[countryCode] = (countryCounts[countryCode] || 0) + 1;
-      }
-    }
-    
-    // Reset for actual processing
-    processedZones.clear();
-    
-    // Process zones and add them to our map
-    // We need to identify the most recent time zone entry for each zone based on the current date
-    
-    // Current timestamp - but let's move it forward slightly to ensure we're using the most current rules
-    // This helps with DST transitions that might be upcoming
-    const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
-    const futureNow = now + (60 * 60 * 24 * 7); // Look ahead 1 week to catch upcoming DST changes
-    
-    // Store time zones by zone name
-    const zoneEntries: Record<string, any[]> = {};
-    
-    // First pass - collect all entries for each zone
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line.trim()) continue;
-      
-      const parts = line.split(',');
-      if (parts.length < 6) continue;  // Need 6 columns for complete data
-      
-      const zoneName = parts[0];
-      const countryCode = parts[1];
-      const zoneType = parts[2];      // LMT, UTC, EST, EDT, etc.
-      const startTime = parseInt(parts[3]) || 0;  // Unix timestamp when this rule starts
-      const utcOffset = parseInt(parts[4]) || 0;  // UTC offset in seconds
-      const isDst = parseInt(parts[5]) === 1;     // 1 for DST, 0 for standard time
-      
-      // Skip historical Local Mean Time entries
-      if (zoneType === 'LMT') continue;
-      
-      // Add this entry to our collection for the zone
-      if (!zoneEntries[zoneName]) {
-        zoneEntries[zoneName] = [];
-      }
-      
-      zoneEntries[zoneName].push({
-        zoneName,
-        countryCode,
-        zoneType,
-        startTime,
-        utcOffset,
-        isDst,
-        isExclusive: countryCounts[countryCode] === 1
-      });
-    }
-    
-    // Second pass - find the most current entry for each zone
-    for (const [zoneName, entries] of Object.entries(zoneEntries)) {
-      // Sort entries by start time (newest first)
-      entries.sort((a, b) => b.startTime - a.startTime);
-      
-      // Find the most recent entry that is applicable now
-      let currentEntry = null;
-      
-      for (const entry of entries) {
-        if (entry.startTime <= futureNow) {
-          currentEntry = entry;
-          break;
-        }
-      }
-      
-      // If we found a current entry, add it to our map
-      if (currentEntry) {
-        timeZonesMap.set(zoneName, {
-          zoneName: currentEntry.zoneName,
-          countryCode: currentEntry.countryCode,
-          zoneType: currentEntry.zoneType,
-          utcOffset: currentEntry.utcOffset,
-          isDst: currentEntry.isDst,
-          isExclusive: currentEntry.isExclusive
-        });
-        
-        // Log for debugging
-        if (!processedZones.has(zoneName)) {
-          processedZones.add(zoneName);
-          console.log(`Using timezone rule for ${zoneName}: ${currentEntry.zoneType}, offset ${currentEntry.utcOffset} seconds, DST: ${currentEntry.isDst ? 'Yes' : 'No'}`);
-        }
-      }
-    }
-    
-    // Add common aliases for convenience
-    const aliasMap: Record<string, string> = {
-      // US Time Zones
-      'America/New_York': 'US/Eastern',
-      'America/Los_Angeles': 'US/Pacific',
-      'America/Chicago': 'US/Central',
-      'America/Denver': 'US/Mountain',
-      'Pacific/Honolulu': 'US/Hawaii',
-      'America/Anchorage': 'US/Alaska',
-      
-      // Australian Time Zones
-      'Australia/Sydney': 'Australia/NSW',
-      'Australia/Melbourne': 'Australia/Victoria',
-      
-      // European Time Zones
-      'Europe/London': 'GB',
-      'Europe/Paris': 'Europe/France',
-      'Europe/Berlin': 'Europe/Germany',
-      
-      // Asia Time Zones
-      'Asia/Tokyo': 'Japan',
-      'Asia/Shanghai': 'China'
+    // In Vercel's environment, we can't access the file system directly
+    // Instead, we'll use a simplified timezone lookup based on country codes
+    const commonTimeZones: Record<string, { offset: number; name: string }> = {
+      'US': { offset: -5, name: 'America/New_York' },
+      'GB': { offset: 0, name: 'Europe/London' },
+      'JP': { offset: 9, name: 'Asia/Tokyo' },
+      'AU': { offset: 10, name: 'Australia/Sydney' },
+      'NZ': { offset: 12, name: 'Pacific/Auckland' },
+      'DE': { offset: 1, name: 'Europe/Berlin' },
+      'FR': { offset: 1, name: 'Europe/Paris' },
+      'IT': { offset: 1, name: 'Europe/Rome' },
+      'ES': { offset: 1, name: 'Europe/Madrid' },
+      'CA': { offset: -5, name: 'America/Toronto' },
+      'MX': { offset: -6, name: 'America/Mexico_City' },
+      'BR': { offset: -3, name: 'America/Sao_Paulo' },
+      'IN': { offset: 5.5, name: 'Asia/Kolkata' },
+      'CN': { offset: 8, name: 'Asia/Shanghai' },
+      'RU': { offset: 3, name: 'Europe/Moscow' }
     };
     
-    // Create the aliases
-    for (const [canonicalName, alias] of Object.entries(aliasMap)) {
-      if (timeZonesMap.has(canonicalName)) {
-        const sourceData = timeZonesMap.get(canonicalName);
-        
-        timeZonesMap.set(alias, {
-          zoneName: alias,
-          countryCode: sourceData.countryCode,
-          zoneType: sourceData.zoneType,
-          utcOffset: sourceData.utcOffset,
-          isDst: sourceData.isDst,
-          isAlias: true,
-          canonicalName: canonicalName
-        });
-      }
-    }
-    
-    // Add special case for the most common Pacific locations
-    // Pacific/Auckland is particularly important to handle correctly for New Zealand
-    if (timeZonesMap.has('Pacific/Auckland')) {
-      const aucklandData = timeZonesMap.get('Pacific/Auckland');
-      console.log(`Pacific/Auckland timezone settings: offset ${aucklandData.utcOffset} seconds, DST: ${aucklandData.isDst ? 'Yes' : 'No'}`);
-      
-      // Add NZ as an alias for Pacific/Auckland
-      timeZonesMap.set('NZ', {
-        zoneName: 'NZ', 
-        countryCode: 'NZ',
-        zoneType: aucklandData.zoneType,
-        utcOffset: aucklandData.utcOffset,
-        isDst: aucklandData.isDst,
-        isAlias: true,
-        canonicalName: 'Pacific/Auckland'
+    // Convert to Map format
+    for (const [code, data] of Object.entries(commonTimeZones)) {
+      timeZonesMap.set(code, {
+        zoneName: data.name,
+        utcOffset: data.offset * 3600, // Convert hours to seconds
+        isDst: false // Simplified, no DST handling
       });
     }
     
-    console.log(`Loaded ${timeZonesMap.size} time zones from TimeZoneDB (including aliases)`);
-    
-    // Debug output - show key sample zones
-    for (const country of ['US', 'GB', 'JP', 'AU', 'NZ']) {
-      console.log(`Sample timezones for ${country}:`);
-      let found = 0;
-      for (const [name, data] of timeZonesMap.entries()) {
-        if (data.countryCode === country && found < 2) {
-          found++;
-          console.log(`  ${name}: ${data.countryCode}, ${data.zoneType}, offset: ${data.utcOffset} seconds, DST: ${data.isDst ? 'Yes' : 'No'}`);
-        }
-      }
-    }
-    
+    console.log(`Loaded ${timeZonesMap.size} common time zones`);
     timeZonesCache = timeZonesMap;
     return timeZonesCache;
   } catch (error) {
