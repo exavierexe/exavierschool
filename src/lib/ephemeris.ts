@@ -25,20 +25,30 @@ async function loadCitiesData(): Promise<any[]> {
   if (citiesCache) return citiesCache;
   
   try {
-    // In browser environment, use fetch to load the JSON file directly
+    // In browser environment, use fetch to load the chunked data
     if (typeof window !== 'undefined') {
       console.log('Loading cities data in browser environment');
       
-      // Load the JSON file directly from the public directory
-      const response = await fetch('/cities.json');
-      
-      if (!response.ok) {
-        console.error('Failed to load cities file:', response.statusText);
-        throw new Error(`Failed to load cities file: ${response.statusText}`);
+      // First, load the index file
+      const indexResponse = await fetch('/cities/index.json');
+      if (!indexResponse.ok) {
+        console.error('Failed to load cities index:', indexResponse.statusText);
+        throw new Error(`Failed to load cities index: ${indexResponse.statusText}`);
       }
       
-      const cities = await response.json();
-      console.log(`Loaded ${cities.length} cities from JSON file`);
+      const index = await indexResponse.json();
+      console.log(`Loading ${index.totalCities} cities from ${index.numChunks} chunks`);
+      
+      // Load all chunks in parallel
+      const chunkPromises = index.chunks.map(chunkFile => 
+        fetch(`/cities/${chunkFile}`).then(response => response.json())
+      );
+      
+      const chunks = await Promise.all(chunkPromises);
+      
+      // Combine all chunks into a single array
+      const cities = chunks.flat();
+      console.log(`Loaded ${cities.length} cities from chunks`);
       
       // Cache the results for future calls
       citiesCache = cities;
