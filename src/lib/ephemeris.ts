@@ -28,7 +28,13 @@ async function loadCitiesData(): Promise<any[]> {
     // In browser environment, use fetch to load the CSV file
     if (typeof window !== 'undefined') {
       console.log('Loading cities data in browser environment');
-      const response = await fetch('/worldcities.csv');
+      
+      // Use absolute URL in production, relative in development
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? window.location.origin 
+        : '';
+      
+      const response = await fetch(`${baseUrl}/worldcities.csv`);
       if (!response.ok) {
         throw new Error(`Failed to load cities file: ${response.statusText}`);
       }
@@ -48,7 +54,7 @@ async function loadCitiesData(): Promise<any[]> {
     }
     
     // In server environment, use file system
-    const csvPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
+    const csvPath = path.join(process.cwd(), 'public', 'worldcities.csv');
     let fileContent;
     
     try {
