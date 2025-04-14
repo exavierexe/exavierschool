@@ -25,56 +25,50 @@ async function loadCitiesData(): Promise<any[]> {
   if (citiesCache) return citiesCache;
   
   try {
-    // In browser environment, use fetch to load the chunked data
+    // In browser environment, use fetch to load the JSON file directly
     if (typeof window !== 'undefined') {
       console.log('Loading cities data in browser environment');
       
-      // First, load the index file
-      const indexResponse = await fetch('/cities/index.json');
-      if (!indexResponse.ok) {
-        console.error('Failed to load cities index:', indexResponse.statusText);
-        throw new Error(`Failed to load cities index: ${indexResponse.statusText}`);
+      // Load the JSON file directly from the public directory
+      const response = await fetch('/cities.json');
+      
+      if (!response.ok) {
+        console.error('Failed to load cities file:', response.statusText);
+        throw new Error(`Failed to load cities file: ${response.statusText}`);
       }
       
-      const index = await indexResponse.json();
-      console.log(`Loading ${index.totalCities} cities from ${index.numChunks} chunks`);
-      
-      // Load all chunks in parallel
-      const chunkPromises = index.chunks.map(chunkFile => 
-        fetch(`/cities/${chunkFile}`).then(response => response.json())
-      );
-      
-      const chunks = await Promise.all(chunkPromises);
-      
-      // Combine all chunks into a single array
-      const cities = chunks.flat();
-      console.log(`Loaded ${cities.length} cities from chunks`);
+      const cities = await response.json();
+      console.log(`Loaded ${cities.length} cities from JSON file`);
       
       // Cache the results for future calls
       citiesCache = cities;
       return cities;
     }
     
-    // In server environment, use file system
-    const jsonPath = path.join(process.cwd(), 'public', 'cities.json');
-    let fileContent;
-    
+    // In server environment (including Vercel), use the public URL
     try {
-      fileContent = fs.readFileSync(jsonPath, 'utf8');
-    } catch (readError) {
-      console.warn('Could not read cities file:', readError);
+      // In Vercel's environment, we need to use the public URL
+      const baseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
+      
+      const response = await fetch(`${baseUrl}/cities.json`);
+      if (!response.ok) {
+        throw new Error(`Failed to load cities file: ${response.statusText}`);
+      }
+      
+      const cities = await response.json();
+      console.log(`Loaded ${cities.length} cities from JSON file on server`);
+      
+      // Cache the results for future calls
+      citiesCache = cities;
+      return cities;
+    } catch (error) {
+      console.warn('Could not load cities file:', error);
       const emptyArray: any[] = [];
       citiesCache = emptyArray;
       return emptyArray;
     }
-    
-    // Parse JSON data
-    const cities = JSON.parse(fileContent);
-    console.log(`Loaded ${cities.length} cities from JSON file on server`);
-    
-    // Cache the results for future calls
-    citiesCache = cities;
-    return cities;
   } catch (error) {
     console.error('Error loading cities data:', error);
     return [];
