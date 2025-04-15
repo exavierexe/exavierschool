@@ -127,14 +127,29 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
         {charts.map((chart) => (
           <div
             key={chart.id}
-            className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
-            onClick={() => onSelectChart(chart.id)}
+            className="p-4 border rounded-lg hover:bg-gray-50"
           >
             <div className="font-medium">{chart.title}</div>
             <div className="text-sm text-gray-500">
               {new Date(chart.date).toLocaleDateString()} at {chart.time}
             </div>
             <div className="text-sm text-gray-500">{chart.location}</div>
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleView(chart)}
+              >
+                View
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleDelete(chart.id)}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         ))}
       </div>
@@ -144,8 +159,7 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-lg font-semibold">{chartData.title}</h4>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 setShowChart(false);
                 setSelectedChart(null);
                 setChartData(null);
