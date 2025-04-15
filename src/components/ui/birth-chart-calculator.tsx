@@ -143,15 +143,15 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
                 <div className="flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-1">
                     <span>☉</span>
-                    <span>{planetsData?.sun?.symbol || ''} {planetsData?.sun?.degree || ''}°</span>
+                    <span>{planetsData?.sun?.name ? ZODIAC_SYMBOLS[ZODIAC_SIGNS.indexOf(planetsData.sun.name)] : ''} {planetsData?.sun?.degree || ''}°</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span>☽</span>
-                    <span>{planetsData?.moon?.symbol || ''} {planetsData?.moon?.degree || ''}°</span>
+                    <span>{planetsData?.moon?.name ? ZODIAC_SYMBOLS[ZODIAC_SIGNS.indexOf(planetsData.moon.name)] : ''} {planetsData?.moon?.degree || ''}°</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span>AC</span>
-                    <span>{ascendantData?.symbol || ''} {ascendantData?.degree || ''}°</span>
+                    <span>{ascendantData?.name ? ZODIAC_SYMBOLS[ZODIAC_SIGNS.indexOf(ascendantData.name)] : ''} {ascendantData?.degree || ''}°</span>
                   </div>
                 </div>
               </div>
