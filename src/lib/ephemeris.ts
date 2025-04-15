@@ -40,12 +40,17 @@ async function loadCitiesData(): Promise<any[]> {
   }
   
   try {
+    // Get the directory of the current file
+    const currentDir = __dirname;
+    console.log('Current directory:', currentDir);
+    
     // Try multiple possible paths for the CSV file
     const possiblePaths = [
+      path.join(currentDir, 'worldcities.csv'),
+      path.join(currentDir, '..', 'worldcities.csv'),
+      path.join(currentDir, '..', 'public', 'worldcities.csv'),
       path.join(process.cwd(), 'src', 'worldcities.csv'),
-      path.join(process.cwd(), 'src', 'public', 'worldcities.csv'),
-      path.join(process.cwd(), 'public', 'worldcities.csv'),
-      path.join(process.cwd(), '.next', 'server', 'public', 'worldcities.csv')
+      path.join(process.cwd(), 'src', 'public', 'worldcities.csv')
     ];
     
     let fileContent;
@@ -54,6 +59,7 @@ async function loadCitiesData(): Promise<any[]> {
     // Try each possible path
     for (const csvPath of possiblePaths) {
       try {
+        console.log('Attempting to read file from:', csvPath);
         fileContent = await fs.promises.readFile(csvPath, 'utf8');
         foundPath = csvPath;
         console.log(`Successfully loaded cities file from: ${csvPath}`);
