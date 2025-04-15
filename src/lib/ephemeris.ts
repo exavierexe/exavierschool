@@ -40,24 +40,35 @@ async function loadCitiesData(): Promise<any[]> {
   }
   
   try {
-    const csvPath = path.join(process.cwd(), 'public', 'worldcities.csv');
-    let fileContent;
+    // Try multiple possible paths for the CSV file
+    const possiblePaths = [
+      path.join(process.cwd(), 'public', 'worldcities.csv'),
+      path.join(process.cwd(), 'src', 'public', 'worldcities.csv'),
+      path.join(process.cwd(), '.next', 'server', 'public', 'worldcities.csv'),
+      path.join(process.cwd(), 'worldcities.csv')
+    ];
     
-    try {
-      // Use fs.promises for better error handling
-      fileContent = await fs.promises.readFile(csvPath, 'utf8');
-    } catch (readError) {
-      console.warn('Could not read cities file:', readError);
-      // Try alternative path for development environment
-      const altPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
+    let fileContent;
+    let foundPath = '';
+    
+    // Try each possible path
+    for (const csvPath of possiblePaths) {
       try {
-        fileContent = await fs.promises.readFile(altPath, 'utf8');
-      } catch (altError) {
-        console.warn('Could not read cities file from alternative path:', altError);
-        const emptyArray: any[] = [];
-        citiesCache = emptyArray;
-        return emptyArray;
+        fileContent = await fs.promises.readFile(csvPath, 'utf8');
+        foundPath = csvPath;
+        console.log(`Successfully loaded cities file from: ${csvPath}`);
+        break;
+      } catch (readError) {
+        console.log(`Could not read cities file from ${csvPath}:`, readError.message);
+        continue;
       }
+    }
+    
+    if (!fileContent) {
+      console.warn('Could not find cities file in any of the expected locations');
+      const emptyArray: any[] = [];
+      citiesCache = emptyArray;
+      return emptyArray;
     }
     
     // Parse CSV data
@@ -66,7 +77,7 @@ async function loadCitiesData(): Promise<any[]> {
       skip_empty_lines: true
     });
     
-    console.log(`Loaded ${records.length} cities from worldcities.csv`);
+    console.log(`Loaded ${records.length} cities from ${foundPath}`);
     
     // Cache the results for future calls
     citiesCache = records;
