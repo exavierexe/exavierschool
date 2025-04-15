@@ -42,10 +42,10 @@ async function loadCitiesData(): Promise<any[]> {
   try {
     // Try multiple possible paths for the CSV file
     const possiblePaths = [
-      path.join(process.cwd(), 'public', 'worldcities.csv'),
+      path.join(process.cwd(), 'src', 'worldcities.csv'),
       path.join(process.cwd(), 'src', 'public', 'worldcities.csv'),
-      path.join(process.cwd(), '.next', 'server', 'public', 'worldcities.csv'),
-      path.join(process.cwd(), 'worldcities.csv')
+      path.join(process.cwd(), 'public', 'worldcities.csv'),
+      path.join(process.cwd(), '.next', 'server', 'public', 'worldcities.csv')
     ];
     
     let fileContent;
