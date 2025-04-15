@@ -11,6 +11,7 @@ import { querySwissEph, saveBirthChart, getBirthChartById, getDefaultChart } fro
 import { ZodiacWheel, type ChartData, exportChartAsImage } from '@/components/ui/zodiacwheel'
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator'
 import { useUser } from '@clerk/nextjs'
+import { LocationSearch } from '@/components/ui/location-search'
 
 interface FormData {
   title: string;
@@ -1142,18 +1143,19 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                 
                 <div>
                   <Label htmlFor="location">Birth Location</Label>
-                  <Input 
-                    id="location" 
-                    placeholder={locationLoading ? "Detecting your location..." : "Enter your birth location"}
+                  <LocationSearch
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    required
+                    onChange={setLocation}
+                    onSelect={({ name, country }) => {
+                      setLocation(`${name}, ${country}`);
+                    }}
+                    placeholder={locationLoading ? "Detecting your location..." : "Enter your birth location"}
                     disabled={locationLoading}
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     {locationLoading 
                       ? "Getting your current location..." 
-                      : "Enter city name, optionally with state/country (e.g., \"New York, NY\" or \"Paris, France\")"}
+                      : "Start typing to search for cities and countries"}
                   </p>
                 </div>
                 
