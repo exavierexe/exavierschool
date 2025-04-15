@@ -33,34 +33,16 @@ function loadCitiesData(): any[] {
   }
   
   try {
-    // Use the correct path for serverless environment
     const csvPath = path.join(process.cwd(), 'public', 'worldcities.csv');
     let fileContent;
     
     try {
-      // First try to read from the public directory
       fileContent = fs.readFileSync(csvPath, 'utf8');
     } catch (readError) {
-      console.warn('Could not read cities file from public directory:', readError);
-      
-      // If that fails, try to read from the current directory
-      try {
-        const altPath = path.join(process.cwd(), 'worldcities.csv');
-        fileContent = fs.readFileSync(altPath, 'utf8');
-      } catch (altError) {
-        console.warn('Could not read cities file from current directory:', altError);
-        
-        // If both attempts fail, try to read from the src directory
-        try {
-          const srcPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
-          fileContent = fs.readFileSync(srcPath, 'utf8');
-        } catch (srcError) {
-          console.warn('Could not read cities file from src directory:', srcError);
-          const emptyArray: any[] = [];
-          citiesCache = emptyArray;
-          return emptyArray;
-        }
-      }
+      console.warn('Could not read cities file:', readError);
+      const emptyArray: any[] = [];
+      citiesCache = emptyArray;
+      return emptyArray;
     }
     
     // Parse CSV data
