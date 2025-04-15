@@ -129,49 +129,62 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
             key={chart.id}
             className="p-4 border rounded-lg"
           >
-            <div className="font-medium">{chart.title}</div>
-            <div className="text-sm text-gray-500">
+            <div className="flex justify-between items-center">
+              <div className="font-medium">{chart.title}</div>
+              <div className="flex items-center gap-4 text-sm">
+                {(() => {
+                  const planets = typeof chart.planets === 'string' 
+                    ? JSON.parse(chart.planets) 
+                    : chart.planets;
+                  const ascendant = typeof chart.ascendant === 'string'
+                    ? JSON.parse(chart.ascendant)
+                    : chart.ascendant;
+
+                  const getSignAndDegree = (longitude: any) => {
+                    if (!longitude) return 'N/A';
+                    if (typeof longitude === 'string') {
+                      const [sign, degree] = longitude.split(' ');
+                      return `${sign} ${degree}`;
+                    }
+                    if (typeof longitude === 'object' && longitude.longitude) {
+                      return longitude.longitude;
+                    }
+                    return 'N/A';
+                  };
+
+                  const getZodiacSymbol = (sign: string) => {
+                    const index = ZODIAC_SIGNS.findIndex(s => s.toLowerCase() === sign.toLowerCase());
+                    return index >= 0 ? ZODIAC_SYMBOLS[index] : '';
+                  };
+
+                  const formatPlanetInfo = (planet: any) => {
+                    const [sign, degree] = getSignAndDegree(planet).split(' ');
+                    return `${getZodiacSymbol(sign)} ${degree}`;
+                  };
+
+                  return (
+                    <>
+                      <div className="flex items-center gap-1">
+                        <span>☉</span>
+                        <span>{formatPlanetInfo(planets?.sun)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>☽</span>
+                        <span>{formatPlanetInfo(planets?.moon)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>AC</span>
+                        <span>{formatPlanetInfo(ascendant)}</span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+            <div className="text-sm text-gray-500 mt-1">
               {new Date(chart.date).toLocaleDateString()} at {chart.time}
             </div>
             <div className="text-sm text-gray-500">{chart.location}</div>
-            
-            {/* Display planet information */}
-            <div className="mt-2 space-y-1">
-              {(() => {
-                const planets = typeof chart.planets === 'string' 
-                  ? JSON.parse(chart.planets) 
-                  : chart.planets;
-                const ascendant = typeof chart.ascendant === 'string'
-                  ? JSON.parse(chart.ascendant)
-                  : chart.ascendant;
-
-                const getSignAndDegree = (longitude: any) => {
-                  if (!longitude) return 'N/A';
-                  if (typeof longitude === 'string') {
-                    const [sign, degree] = longitude.split(' ');
-                    return `${sign} ${degree}`;
-                  }
-                  if (typeof longitude === 'object' && longitude.longitude) {
-                    return longitude.longitude;
-                  }
-                  return 'N/A';
-                };
-
-                return (
-                  <>
-                    <div className="text-sm">
-                      <span className="font-medium">Sun:</span> {getSignAndDegree(planets?.sun)}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Moon:</span> {getSignAndDegree(planets?.moon)}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Ascendant:</span> {getSignAndDegree(ascendant)}
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
 
             <div className="flex gap-2 mt-2">
               <Button
