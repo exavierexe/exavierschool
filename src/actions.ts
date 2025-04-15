@@ -63,7 +63,7 @@ interface PlanetPointData {
 // Function to ensure user exists in database
 export const syncUser = async (clerkId: string) => {
   try {
-    // Get the current user from Clerk to access their username
+    // Get the current user from Clerk to access their name and email
     const clerkUser = await currentUser();
     
     // Check if user already exists
@@ -74,8 +74,8 @@ export const syncUser = async (clerkId: string) => {
       select: {
         id: true,
         clerkId: true,
-        username: true,
-        defaultChartId: true
+        name: true,
+        defaultChart: true
       }
     });
 
@@ -84,19 +84,20 @@ export const syncUser = async (clerkId: string) => {
       const newUser = await prisma.user.create({
         data: {
           clerkId: clerkId,
-          username: clerkUser?.username || null
+          name: clerkUser?.firstName || null,
+          email: clerkUser?.emailAddresses[0]?.emailAddress || 'no-email@example.com'
         }
       });
       return newUser;
     } else {
-      // Update existing user's username if it has changed
-      if (existingUser.username !== clerkUser?.username) {
+      // Update existing user's name if it has changed
+      if (existingUser.name !== clerkUser?.firstName) {
         const updatedUser = await prisma.user.update({
           where: {
             id: existingUser.id
           },
           data: {
-            username: clerkUser?.username || null
+            name: clerkUser?.firstName || null
           }
         });
         return updatedUser;
@@ -410,29 +411,29 @@ export const querySwissEph = async (params: {
     // Get the time zone information for the location
     let timeZoneInfo;
     
-    // Use the timeZone information from geocodeLocation if available
-    if (geocodedLocation.timeZone) {
-      console.log(`Using TimeZoneDB data: ${geocodedLocation.timeZone.zoneName}, UTC offset: ${geocodedLocation.timeZone.utcOffset} seconds`);
+    // Use the timezone information from geocodeLocation if available
+    if (geocodedLocation.timezone) {
+      console.log(`Using timezone data: ${geocodedLocation.timezone}`);
       
-      // Convert seconds to hours and minutes for display
-      const totalMinutes = geocodedLocation.timeZone.utcOffset / 60;
-      const offsetHours = Math.floor(Math.abs(totalMinutes) / 60) * (totalMinutes >= 0 ? 1 : -1);
-      const offsetMinutes = Math.abs(totalMinutes) % 60;
-      
-      // Format timezone name with sign
-      const tzSignA = totalMinutes >= 0 ? '+' : '-';
-      const formattedHours = Math.abs(offsetHours).toString().padStart(2, '0');
-      const formattedMinutes = Math.abs(offsetMinutes).toString().padStart(2, '0');
-      console.log(tzSignA)
-      console.log(formattedHours)
-      console.log(formattedMinutes)
+      // Get the timezone offset in hours and minutes for display
+      let totalOffsetMinutes = 0;
+      let offsetHours = 0;
+      let offsetMinutes = 0;
+
+      // Parse the timezone string to get offset
+      const timezoneMatch = geocodedLocation.timezone.match(/UTC([+-])(\d+):(\d+)/);
+      if (timezoneMatch) {
+        const sign = timezoneMatch[1] === '+' ? 1 : -1;
+        offsetHours = sign * parseInt(timezoneMatch[2]);
+        offsetMinutes = sign * parseInt(timezoneMatch[3]);
+        totalOffsetMinutes = (offsetHours * 60) + offsetMinutes;
+      }
       
       timeZoneInfo = {
-        name: `${geocodedLocation.timeZone.zoneName} (UTC${tzSignA}${formattedHours}:${formattedMinutes})`,
+        name: geocodedLocation.timezone,
         offsetHours,
-        offsetMinutes: offsetMinutes * (totalMinutes >= 0 ? 1 : -1),
-        totalOffsetMinutes: totalMinutes
-        
+        offsetMinutes,
+        totalOffsetMinutes
       };
       
     } else {
@@ -448,10 +449,15 @@ export const querySwissEph = async (params: {
     let offsetHours = 0;
     let offsetMinutes = 0;
 
-    if (geocodedLocation.timeZone && geocodedLocation.timeZone.utcOffset) {
-      totalOffsetMinutes = geocodedLocation.timeZone.utcOffset / 60;
-      offsetHours = Math.floor(Math.abs(totalOffsetMinutes) / 60) * (totalOffsetMinutes >= 0 ? 1 : -1);
-      offsetMinutes = Math.abs(totalOffsetMinutes) % 60;
+    if (geocodedLocation.timezone) {
+      // Parse the timezone string to get offset
+      const timezoneMatch = geocodedLocation.timezone.match(/UTC([+-])(\d+):(\d+)/);
+      if (timezoneMatch) {
+        const sign = timezoneMatch[1] === '+' ? 1 : -1;
+        offsetHours = sign * parseInt(timezoneMatch[2]);
+        offsetMinutes = sign * parseInt(timezoneMatch[3]);
+        totalOffsetMinutes = (offsetHours * 60) + offsetMinutes;
+      }
     } else {
       // Fallback to longitude-based calculation
       const approxOffsetHours = Math.round(geocodedLocation.longitude / 15);
@@ -497,7 +503,7 @@ export const querySwissEph = async (params: {
     console.log(timeZoneInfo.offsetHours)
     
     // Store the timezone offset information separately to pass to the ephemeris calculation
-    const timeZoneOffsetSeconds = geocodedLocation.timeZone?.utcOffset ?? 0;
+    const timeZoneOffsetSeconds = totalOffsetMinutes * 60;
     
     console.log(`Input local time: ${year}-${month}-${day} ${hour}:${minute}:${second}`);
     console.log(`Timezone offset: ${offsetHours} hours, ${offsetMinutes} minutes (${totalOffsetMinutes} minutes total)`);
@@ -739,8 +745,8 @@ export const querySwissEph = async (params: {
      }
      
      // Add location information to the output
-     const timezoneInfoText = geocodedLocation.timeZone ? 
-       `Time Zone: ${geocodedLocation.timeZone.zoneName} (${geocodedLocation.timeZone.countryName})` :
+     const timezoneInfoText = geocodedLocation.timezone ? 
+       `Time Zone: ${geocodedLocation.timezone}` :
        `Time Zone: ${timeZoneInfo.name}`;
        
      const locationInfo = `
@@ -1129,6 +1135,10 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
     const user = await prisma.user.findFirst({
       where: { 
         clerkId: userId
+      },
+      select: { 
+        id: true,
+        defaultChart: true 
       }
     });
 
@@ -1202,26 +1212,12 @@ export const saveBirthChart = async (chartData: any, userId: string) => {
     console.log('Creating birth chart in database...');
     const chart = await prisma.birthChart.create({
       data: {
-        name: chartData.title || 'Birth Chart',
-        birthDate,
-        birthTime: chartData.time || '',
-        birthPlace: chartData.location || '',
-        ascendant: formatPlanetData(chartData.ascendant),
-        midheaven: formatPlanetData(chartData.planets?.midheaven),
-        sun: formatPlanetData(chartData.planets?.sun),
-        moon: formatPlanetData(chartData.planets?.moon),
-        mercury: formatPlanetData(chartData.planets?.mercury),
-        venus: formatPlanetData(chartData.planets?.venus),
-        mars: formatPlanetData(chartData.planets?.mars),
-        jupiter: formatPlanetData(chartData.planets?.jupiter),
-        saturn: formatPlanetData(chartData.planets?.saturn),
-        uranus: formatPlanetData(chartData.planets?.uranus),
-        neptune: formatPlanetData(chartData.planets?.neptune),
-        pluto: formatPlanetData(chartData.planets?.pluto),
-        northnode: formatPlanetData(chartData.planets?.northnode) || formatPlanetData(chartData.planets?.trueNode),
-        southnode: formatPlanetData(chartData.planets?.southnode),
-        chiron: formatPlanetData(chartData.planets?.chiron),
-        lilith: formatPlanetData(chartData.planets?.lilith),
+        title: chartData.title || 'Birth Chart',
+        date: birthDate,
+        time: chartData.time || '',
+        location: chartData.location || '',
+        planets: chartData.planets || {},
+        ascendant: chartData.ascendant || {},
         houses: chartData.houses || {},
         aspects: chartData.aspects || [],
         userId: user.id,
@@ -1313,14 +1309,14 @@ export const getDefaultChart = async (userId: string) => {
       },
       select: { 
         id: true,
-        defaultChartId: true 
+        defaultChart: true 
       }
     });
     
-    if (!user || !user.defaultChartId) return null;
+    if (!user || !user.defaultChart) return null;
     
     const chart = await prisma.birthChart.findUnique({
-      where: { id: user.defaultChartId }
+      where: { id: user.defaultChart }
     });
     
     return chart;
@@ -1373,7 +1369,7 @@ export const setDefaultChart = async (userId: string, chartId: number) => {
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        defaultChartId: chartId
+        defaultChart: chartId
       }
     });
     
@@ -1556,32 +1552,26 @@ export async function queryCityAndTimezone(cityName: string, countryCode?: strin
     // First try to find the city in our database
     const city = await prisma.city.findFirst({
       where: {
-        name: {
+        city_ascii: {
           contains: cityName,
           mode: 'insensitive'
         },
         ...(countryCode && {
-          countryCode: {
-            equals: countryCode,
-            mode: 'insensitive'
-          }
+          iso2: countryCode
         })
-      },
-      orderBy: {
-        population: 'desc' // Prefer larger cities if multiple matches
       }
     });
 
     if (!city) {
+      console.log('City not found');
       return null;
     }
 
-    // Then get the timezone information
+    // Find the timezone
     const timezone = await prisma.timeZone.findFirst({
       where: {
-        countryCode: city.countryCode,
         zoneName: {
-          contains: city.timezone,
+          contains: city.city_ascii,
           mode: 'insensitive'
         }
       }
@@ -1589,16 +1579,14 @@ export async function queryCityAndTimezone(cityName: string, countryCode?: strin
 
     return {
       city: {
-        name: city.name,
+        name: city.city_ascii,
         country: city.country,
-        latitude: city.latitude,
-        longitude: city.longitude,
-        timezone: city.timezone
+        latitude: city.lat,
+        longitude: city.lng
       },
       timezone: timezone ? {
-        zoneName: timezone.zoneName,
-        utcOffset: timezone.utcOffset,
-        countryName: city.country
+        name: timezone.zoneName,
+        offset: timezone.utcOffset
       } : null
     };
   } catch (error) {
