@@ -86,15 +86,30 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
       ? JSON.parse(chart.planets) 
       : chart.planets;
 
+    // Parse houses from JSON
+    const housesData = typeof chart.houses === 'string'
+      ? JSON.parse(chart.houses)
+      : chart.houses;
+
+    // Parse aspects from JSON
+    const aspectsData = typeof chart.aspects === 'string'
+      ? JSON.parse(chart.aspects)
+      : chart.aspects;
+
+    // Parse ascendant from JSON
+    const ascendantData = typeof chart.ascendant === 'string'
+      ? JSON.parse(chart.ascendant)
+      : chart.ascendant;
+
     const convertedChart: ChartData = {
       title: chart.title,
       date: new Date(chart.date).toLocaleDateString(),
       time: chart.time,
       location: chart.location,
       planets: planetsData,
-      houses: chart.houses as any || {},
-      ascendant: chart.ascendant as any || null,
-      aspects: chart.aspects as any || [],
+      houses: housesData || {},
+      ascendant: ascendantData || null,
+      aspects: aspectsData || [],
       rawOutput: ''
     };
 
