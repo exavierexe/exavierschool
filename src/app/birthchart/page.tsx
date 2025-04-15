@@ -1145,8 +1145,8 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
                   <LocationInput 
                     value={location}
                     onChange={setLocation}
-                    disabled={locationLoading}
                     loading={locationLoading}
+                    disabled={locationLoading}
                   />
                 </div>
                 

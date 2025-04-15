@@ -8,62 +8,60 @@ import { getCities } from '@/lib/ephemeris';
 interface LocationInputProps {
   value: string;
   onChange: (value: string) => void;
-  disabled?: boolean;
   loading?: boolean;
+  disabled?: boolean;
 }
 
-interface CityData {
-  name: string;
-  country: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-}
-
-export function LocationInput({ value, onChange, disabled, loading }: LocationInputProps) {
-  const [suggestions, setSuggestions] = useState<CityData[]>([]);
+export function LocationInput({ value, onChange, loading, disabled }: LocationInputProps) {
+  const [suggestions, setSuggestions] = useState<Array<{ name: string; country: string }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  // Debounce the search
+  // Handle clicks outside the input and suggestions
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (value.length >= 2) {
-        setIsLoading(true);
-        try {
-          const cities = await getCities(value);
-          setSuggestions(cities);
-          setShowSuggestions(true);
-        } catch (error) {
-          console.error('Error fetching cities:', error);
-          setSuggestions([]);
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        setSuggestions([]);
+    function handleClickOutside(event: MouseEvent) {
+      if (inputRef.current && !inputRef.current.contains(event.target as Node) &&
+          suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [value]);
-
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
-      }
-    };
+    }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (city: CityData) => {
-    onChange(`${city.name}, ${city.country}`);
+  // Fetch suggestions when input changes
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!value.trim()) {
+        setSuggestions([]);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const cities = await getCities(value);
+        setSuggestions(cities.map(city => ({
+          name: city.name,
+          country: city.country
+        })));
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error('Error fetching city suggestions:', error);
+        setSuggestions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchSuggestions, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [value]);
+
+  const handleSuggestionClick = (suggestion: { name: string; country: string }) => {
+    onChange(`${suggestion.name}, ${suggestion.country}`);
     setShowSuggestions(false);
   };
 
@@ -76,9 +74,9 @@ export function LocationInput({ value, onChange, disabled, loading }: LocationIn
         placeholder={loading ? "Detecting your location..." : "Enter your birth location"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setShowSuggestions(true)}
         required
-        disabled={disabled || loading}
-        onFocus={() => value.length >= 2 && setShowSuggestions(true)}
+        disabled={loading || disabled}
       />
       <p className="text-xs text-gray-500 mt-1">
         {loading 
@@ -87,25 +85,23 @@ export function LocationInput({ value, onChange, disabled, loading }: LocationIn
       </p>
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-          <ul className="py-1 max-h-60 overflow-auto">
-            {suggestions.map((city, index) => (
-              <li
-                key={`${city.name}-${index}`}
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                onClick={() => handleSelect(city)}
+        <div
+          ref={suggestionsRef}
+          className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
+        >
+          {isLoading ? (
+            <div className="p-2 text-sm text-gray-500">Loading suggestions...</div>
+          ) : (
+            suggestions.map((suggestion, index) => (
+              <div
+                key={`${suggestion.name}-${index}`}
+                className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                onClick={() => handleSuggestionClick(suggestion)}
               >
-                <div className="font-medium">{city.name}</div>
-                <div className="text-sm text-gray-500">{city.country}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="absolute right-2 top-8">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                {suggestion.name}, {suggestion.country}
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
