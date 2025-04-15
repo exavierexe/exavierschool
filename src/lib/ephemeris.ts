@@ -774,8 +774,8 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         longitude: dbResult.city.longitude,
         formattedAddress: `${dbResult.city.name}, ${dbResult.city.country}`,
         countryCode: dbResult.city.country,
-        timezone: dbResult.timezone?.zoneName || dbResult.city.timezone,
-        utcOffset: dbResult.timezone?.utcOffset || 0
+        timezone: dbResult.timezone?.name || 'UTC',
+        utcOffset: dbResult.timezone?.offset || 0
       };
     }
 
@@ -788,7 +788,7 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         longitude: city.longitude,
         formattedAddress: `${city.name}, ${city.country}`,
         countryCode: city.country,
-        timezone: city.timezone,
+        timezone: city.timezone || 'UTC',
         utcOffset: 0 // We'll calculate this based on the timezone
       };
     }
@@ -804,7 +804,7 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         longitude: fallbackLocation.longitude,
         formattedAddress: fallbackLocation.formattedAddress,
         countryCode: fallbackLocation.countryCode,
-        timezone: fallbackLocation.timezoneName,
+        timezone: fallbackLocation.timezoneName || 'UTC',
         utcOffset: 0
       };
     }
