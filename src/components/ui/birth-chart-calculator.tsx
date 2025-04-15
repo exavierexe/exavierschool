@@ -125,29 +125,13 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
       <h3 className="text-lg font-semibold">Saved Charts</h3>
       <div className="grid gap-4">
         {charts.map((chart) => {
-          // Parse the data once per chart
-          const planets = typeof chart.planets === 'string' 
+          // Parse the data the same way as handleView
+          const planetsData = typeof chart.planets === 'string' 
             ? JSON.parse(chart.planets) 
             : chart.planets;
-          const ascendant = typeof chart.ascendant === 'string'
+          const ascendantData = typeof chart.ascendant === 'string'
             ? JSON.parse(chart.ascendant)
             : chart.ascendant;
-
-          // Helper function to safely get planet position
-          const getPlanetPosition = (planet: any) => {
-            if (!planet) return 'N/A';
-            if (typeof planet === 'string') return planet;
-            if (typeof planet === 'object' && planet.longitude) return planet.longitude;
-            return 'N/A';
-          };
-
-          // Helper function to get zodiac symbol
-          const getZodiacSymbol = (position: string) => {
-            if (!position || position === 'N/A') return '';
-            const sign = position.split(' ')[0];
-            const index = ZODIAC_SIGNS.findIndex(s => s.toLowerCase() === sign.toLowerCase());
-            return index >= 0 ? ZODIAC_SYMBOLS[index] : '';
-          };
 
           return (
             <div
@@ -159,15 +143,15 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
                 <div className="flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-1">
                     <span>☉</span>
-                    <span>{getZodiacSymbol(getPlanetPosition(planets?.sun))} {getPlanetPosition(planets?.sun)?.split(' ')[1] || ''}</span>
+                    <span>{planetsData?.sun?.symbol || ''} {planetsData?.sun?.degree || ''}°</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span>☽</span>
-                    <span>{getZodiacSymbol(getPlanetPosition(planets?.moon))} {getPlanetPosition(planets?.moon)?.split(' ')[1] || ''}</span>
+                    <span>{planetsData?.moon?.symbol || ''} {planetsData?.moon?.degree || ''}°</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span>AC</span>
-                    <span>{getZodiacSymbol(getPlanetPosition(ascendant))} {getPlanetPosition(ascendant)?.split(' ')[1] || ''}</span>
+                    <span>{ascendantData?.symbol || ''} {ascendantData?.degree || ''}°</span>
                   </div>
                 </div>
               </div>
