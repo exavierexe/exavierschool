@@ -127,13 +127,40 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
         {charts.map((chart) => (
           <div
             key={chart.id}
-            className="p-4 border rounded-lg hover:bg-gray-50"
+            className="p-4 border rounded-lg"
           >
             <div className="font-medium">{chart.title}</div>
             <div className="text-sm text-gray-500">
               {new Date(chart.date).toLocaleDateString()} at {chart.time}
             </div>
             <div className="text-sm text-gray-500">{chart.location}</div>
+            
+            {/* Display planet information */}
+            <div className="mt-2 space-y-1">
+              {(() => {
+                const planets = typeof chart.planets === 'string' 
+                  ? JSON.parse(chart.planets) 
+                  : chart.planets;
+                const ascendant = typeof chart.ascendant === 'string'
+                  ? JSON.parse(chart.ascendant)
+                  : chart.ascendant;
+
+                return (
+                  <>
+                    <div className="text-sm">
+                      <span className="font-medium">Sun:</span> {planets?.sun?.longitude || 'N/A'}
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Moon:</span> {planets?.moon?.longitude || 'N/A'}
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Ascendant:</span> {ascendant?.longitude || 'N/A'}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
             <div className="flex gap-2 mt-2">
               <Button
                 variant="outline"
@@ -141,13 +168,6 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
                 onClick={() => handleView(chart)}
               >
                 View
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => handleDelete(chart.id)}
-              >
-                Delete
               </Button>
             </div>
           </div>
