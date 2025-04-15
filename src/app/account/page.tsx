@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator';
-import { getBirthCharts, getBirthChartById, saveBirthChart, setDefaultChart, getDefaultChart, syncUser } from '@/actions';
+import { getBirthCharts, getBirthChartById, saveBirthChart, setDefaultChart, getDefaultChart, syncUser, deleteBirthChart } from '@/actions';
 import { BookOpen, Settings, User, LogOut, Calendar, Star } from 'lucide-react';
 import { SavedTarotReadings } from '@/components/ui/saved-tarot-readings';
 
@@ -347,15 +347,17 @@ export default function AccountPage() {
                             {charts.map(chart => (
                               <Card 
                                 key={chart.id} 
-                                className={`p-4 cursor-pointer transition-all ${
+                                className={`p-4 transition-all ${
                                   defaultChartId === chart.id 
                                     ? 'ring-2 ring-purple-500 dark:ring-purple-400' 
                                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                                 }`}
-                                onClick={() => handleSetDefaultChart(chart.id)}
                               >
                                 <div className="flex justify-between items-start">
-                                  <div>
+                                  <div 
+                                    className="flex-1 cursor-pointer"
+                                    onClick={() => handleSetDefaultChart(chart.id)}
+                                  >
                                     <h4 className="font-semibold">{chart.title}</h4>
                                     <p className="text-xs text-gray-500">
                                       {new Date(chart.date).toLocaleDateString()} at {chart.time}
@@ -363,9 +365,30 @@ export default function AccountPage() {
                                     <p className="text-xs text-gray-500">{chart.location}</p>
                                   </div>
                                   
-                                  {defaultChartId === chart.id && (
-                                    <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                                  )}
+                                  <div className="flex flex-col items-end gap-2">
+                                    {defaultChartId === chart.id && (
+                                      <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                                    )}
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await deleteBirthChart(chart.id);
+                                          setCharts(charts.filter(c => c.id !== chart.id));
+                                          if (defaultChartId === chart.id) {
+                                            setDefaultChartId(null);
+                                          }
+                                        } catch (err) {
+                                          console.error('Error deleting chart:', err);
+                                          alert('Failed to delete chart. Please try again.');
+                                        }
+                                      }}
+                                    >
+                                      Delete
+                                    </Button>
+                                  </div>
                                 </div>
                               </Card>
                             ))}
