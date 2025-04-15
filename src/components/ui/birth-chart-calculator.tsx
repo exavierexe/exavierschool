@@ -6,6 +6,7 @@ import { Button } from './button';
 import { getBirthCharts, deleteBirthChart } from '@/actions';
 import { ZodiacWheel } from '@/components/ui/zodiacwheel';
 import { ChartData } from '@/components/ui/zodiacwheel';
+import { JsonValue } from 'type-fest';
 
 // Zodiac signs and their symbols
 const ZODIAC_SIGNS = [
@@ -15,34 +16,20 @@ const ZODIAC_SIGNS = [
 ];
 const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
 
-type BirthChart = {
+interface BirthChart {
   id: number;
+  title: string;
+  date: Date;
+  time: string;
+  location: string;
+  planets: JsonValue;
+  ascendant: JsonValue;
+  houses: JsonValue;
+  aspects: JsonValue;
   userId: number;
-  name: string;
-  birthDate: Date;
-  birthTime: string;
-  birthPlace: string;
   createdAt: Date;
   updatedAt: Date;
-  sun: string;
-  moon: string;
-  mercury: string;
-  venus: string;
-  mars: string;
-  jupiter: string;
-  saturn: string;
-  uranus: string;
-  neptune: string;
-  pluto: string;
-  ascendant: string | null;
-  houses: any; // Allow any type for JSON fields
-  aspects: any; // Allow any type for JSON fields
-  northnode: string | null;
-  southnode: string | null;
-  lilith: string | null;
-  midheaven: string | null;
-  chiron: string | null;
-};
+}
 
 type SavedChartProps = {
   userId?: string;
@@ -51,17 +38,15 @@ type SavedChartProps = {
 
 export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
   const [charts, setCharts] = useState<BirthChart[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedChart, setSelectedChart] = useState<BirthChart | null>(null);
   const [showChart, setShowChart] = useState(false);
   const [chartData, setChartData] = useState<ChartData | null>(null);
 
-  // Load charts on component mount
   useEffect(() => {
     const loadCharts = async () => {
       if (!userId) return;
-      
       try {
         setLoading(true);
         const userCharts = await getBirthCharts(userId);
@@ -92,119 +77,49 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
     }
   };
 
-  const handleView = async (chart: BirthChart) => {
-    try {
-      setSelectedChart(chart);
-      setShowChart(true);
-      
-      // Convert the stored chart to our ChartData format
-      const planets: Record<string, any> = {};
-      
-      // Helper function to parse stored position strings like "Aries 15.5°"
-      const parsePosition = (posStr: string | null): { name: string; symbol: string; longitude: number; degree: number } | null => {
-        if (!posStr) return null;
-        
-        // Extract sign name and degrees
-        const match = posStr.match(/([A-Za-z]+)\s+(\d+\.?\d*)°/);
-        if (!match) return null;
-        
-        const signName = match[1];
-        const degree = parseFloat(match[2]);
-        
-        // Find sign index
-        const signIndex = ZODIAC_SIGNS.findIndex(sign => 
-          sign.toLowerCase() === signName.toLowerCase()
-        );
-        
-        if (signIndex === -1) return null;
-        
-        // Calculate absolute longitude (0-360)
-        const longitude = signIndex * 30 + degree;
-        
-        return {
-          name: ZODIAC_SIGNS[signIndex],
-          symbol: ZODIAC_SYMBOLS[signIndex],
-          longitude,
-          degree
-        };
-      };
-      
-      // Add planets
-      if (chart.sun) planets.sun = parsePosition(chart.sun);
-      if (chart.moon) planets.moon = parsePosition(chart.moon);
-      if (chart.mercury) planets.mercury = parsePosition(chart.mercury);
-      if (chart.venus) planets.venus = parsePosition(chart.venus);
-      if (chart.mars) planets.mars = parsePosition(chart.mars);
-      if (chart.jupiter) planets.jupiter = parsePosition(chart.jupiter);
-      if (chart.saturn) planets.saturn = parsePosition(chart.saturn);
-      if (chart.uranus) planets.uranus = parsePosition(chart.uranus);
-      if (chart.neptune) planets.neptune = parsePosition(chart.neptune);
-      if (chart.pluto) planets.pluto = parsePosition(chart.pluto);
-      
-      // Add points
-      if (chart.northnode) planets.northnode = parsePosition(chart.northnode);
-      if (chart.southnode) planets.southnode = parsePosition(chart.southnode);
-      if (chart.lilith) planets.lilith = parsePosition(chart.lilith);
-      if (chart.midheaven) planets.midheaven = parsePosition(chart.midheaven);
-      if (chart.chiron) planets.chiron = parsePosition(chart.chiron);
-      
-      // Parse ascendant
-      const ascendant = parsePosition(chart.ascendant) || { 
-        name: 'Unknown', symbol: '?', longitude: 0, degree: 0 
-      };
-      
-      const convertedChart: ChartData = {
-        title: chart.name,
-        date: new Date(chart.birthDate).toLocaleDateString(),
-        time: chart.birthTime,
-        location: chart.birthPlace,
-        planets,
-        houses: chart.houses as any || {},
-        aspects: chart.aspects as any || [],
-        ascendant,
-        id: chart.id,
-      };
-      
-      setChartData(convertedChart);
-    } catch (error) {
-      console.error('Error loading chart:', error);
-      setError('Failed to load chart');
-    }
+  const handleView = (chart: BirthChart) => {
+    setSelectedChart(chart);
+    setShowChart(true);
+
+    // Parse the planets data from JSON
+    const planetsData = typeof chart.planets === 'string' 
+      ? JSON.parse(chart.planets) 
+      : chart.planets;
+
+    const convertedChart: ChartData = {
+      title: chart.title,
+      date: new Date(chart.date).toLocaleDateString(),
+      time: chart.time,
+      location: chart.location,
+      planets: planetsData,
+      houses: chart.houses as any || {},
+      ascendant: chart.ascendant as any || null,
+      aspects: chart.aspects as any || [],
+      rawOutput: ''
+    };
+
+    setChartData(convertedChart);
   };
 
-  if (loading) {
-    return <div className="text-gray-500">Loading saved charts...</div>;
-  }
-
-  if (error) {
-    return <div className="text-red-500">{error}</div>;
-  }
-
-  if (charts.length === 0) {
-    return <div className="text-gray-500">No saved charts found</div>;
-  }
+  if (loading) return <div>Loading saved charts...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+  if (charts.length === 0) return <div>No saved charts found.</div>;
 
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Saved Charts</h3>
-      <div className="space-y-2">
+      <div className="grid gap-4">
         {charts.map((chart) => (
-          <div key={chart.id} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-            <span className="text-sm">{chart.name}</span>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handleView(chart)}
-                className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded"
-              >
-                View
-              </button>
-              <button
-                onClick={() => handleDelete(chart.id)}
-                className="text-xs bg-red-600 hover:bg-red-700 px-2 py-1 rounded"
-              >
-                Delete
-              </button>
+          <div
+            key={chart.id}
+            className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
+            onClick={() => onSelectChart(chart.id)}
+          >
+            <div className="font-medium">{chart.title}</div>
+            <div className="text-sm text-gray-500">
+              {new Date(chart.date).toLocaleDateString()} at {chart.time}
             </div>
+            <div className="text-sm text-gray-500">{chart.location}</div>
           </div>
         ))}
       </div>
@@ -214,7 +129,8 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-lg font-semibold">{chartData.title}</h4>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setShowChart(false);
                 setSelectedChart(null);
                 setChartData(null);
