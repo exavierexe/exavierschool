@@ -12,6 +12,84 @@ import { ZodiacWheel, type ChartData, exportChartAsImage } from '@/components/ui
 import { SavedBirthCharts } from '@/components/ui/birth-chart-calculator'
 import { useUser } from '@clerk/nextjs'
 
+interface FormData {
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+}
+
+interface Planet {
+  name: string;
+  symbol: string;
+  longitude: number;
+  degree: number;
+}
+
+interface DbBirthChart {
+  id: number;
+  title: string;
+  date: Date;
+  time: string;
+  location: string;
+  planets: any;
+  ascendant: any;
+  houses: any;
+  aspects: any;
+  userId: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Helper function to parse position strings like "Aries 15.5°"
+function parsePosition(posStr: string | null): Planet | null {
+  if (!posStr) return null;
+  
+  // Extract sign name and degrees
+  const match = posStr.match(/([A-Za-z]+)\s+(\d+\.?\d*)°/);
+  if (!match) return null;
+  
+  const signName = match[1];
+  const degree = parseFloat(match[2]);
+  
+  // Find sign index
+  const signIndex = ZODIAC_SIGNS.findIndex(sign => 
+    sign.toLowerCase() === signName.toLowerCase()
+  );
+  
+  if (signIndex === -1) return null;
+  
+  // Calculate absolute longitude (0-360)
+  const longitude = signIndex * 30 + degree;
+  
+  // Create proper zodiac symbol
+  const symbol = ZODIAC_SYMBOLS[signIndex];
+  
+  return {
+    name: ZODIAC_SIGNS[signIndex],
+    symbol,
+    longitude,
+    degree
+  };
+}
+
+// Helper function to convert database chart to display chart
+function dbChartToDisplayChart(dbChart: DbBirthChart): ChartData {
+  return {
+    id: dbChart.id,
+    title: dbChart.title,
+    date: dbChart.date.toISOString().split('T')[0],
+    time: dbChart.time,
+    location: dbChart.location,
+    planets: dbChart.planets,
+    houses: dbChart.houses,
+    aspects: dbChart.aspects,
+    ascendant: dbChart.ascendant,
+    userId: dbChart.userId,
+    rawOutput: ''
+  };
+}
+
 // Helper function to parse JavaScript Ephemeris output into chart data
 function parseSwissEphOutput(output: string): ChartData {
   if (!output) {
@@ -21,7 +99,8 @@ function parseSwissEphOutput(output: string): ChartData {
         sun: { name: 'Aries', symbol: '♈', longitude: 15, degree: 15 }
       },
       houses: {} as Record<string, { cusp: number; name: string; symbol: string; degree: number }>,
-      ascendant: { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 }
+      ascendant: { name: 'Aries', symbol: '♈', longitude: 0, degree: 0 },
+      rawOutput: ''
     };
   }
   
@@ -415,7 +494,8 @@ function parseSwissEphOutput(output: string): ChartData {
   return {
     planets,
     houses,
-    ascendant
+    ascendant,
+    rawOutput: output
   };
 }
 
@@ -556,6 +636,12 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
   const [selectedChartId, setSelectedChartId] = useState<number | null>(null)
   const [loadingStoredChart, setLoadingStoredChart] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [formData, setFormData] = useState<FormData>({
+    title: '',
+    date: '',
+    time: '',
+    location: ''
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -797,66 +883,74 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
             return;
           }
 
-          // Convert the stored chart to our ChartData format
-          // Parse planet positions from stored strings
-          const planets: Record<string, any> = {};
-          
-          // Helper function to parse stored position strings like "Aries 15.5°"
-          const parsePosition = (posStr: string | null): { name: string; symbol: string; longitude: number; degree: number } | null => {
-            if (!posStr) return null;
-            
-            // Extract sign name and degrees
-            const match = posStr.match(/([A-Za-z]+)\s+(\d+\.?\d*)°/);
-            if (!match) return null;
-            
-            const signName = match[1];
-            const degree = parseFloat(match[2]);
-            
-            // Find sign index
-            const signIndex = ZODIAC_SIGNS.findIndex(sign => 
-              sign.toLowerCase() === signName.toLowerCase()
-            );
-            
-            if (signIndex === -1) return null;
-            
-            // Calculate absolute longitude (0-360)
-            const longitude = signIndex * 30 + degree;
-            
-            return {
-              name: ZODIAC_SIGNS[signIndex],
-              symbol: ZODIAC_SYMBOLS[signIndex],
-              longitude,
-              degree
-            };
-          };
-          
+          // Parse planets from JSON
+          const parsedPlanets = typeof chartToLoad.planets === 'string' 
+            ? JSON.parse(chartToLoad.planets) 
+            : chartToLoad.planets;
+
+          // Parse houses from JSON
+          const parsedHouses = typeof chartToLoad.houses === 'string'
+            ? JSON.parse(chartToLoad.houses)
+            : chartToLoad.houses;
+
+          // Parse aspects from JSON
+          const parsedAspects = typeof chartToLoad.aspects === 'string'
+            ? JSON.parse(chartToLoad.aspects)
+            : chartToLoad.aspects;
+
+          // Parse ascendant from JSON
+          const parsedAscendant = typeof chartToLoad.ascendant === 'string'
+            ? JSON.parse(chartToLoad.ascendant)
+            : chartToLoad.ascendant;
+
           // Add planets
-          if (chartToLoad.sun) planets.sun = parsePosition(chartToLoad.sun);
-          if (chartToLoad.moon) planets.moon = parsePosition(chartToLoad.moon);
-          if (chartToLoad.mercury) planets.mercury = parsePosition(chartToLoad.mercury);
-          if (chartToLoad.venus) planets.venus = parsePosition(chartToLoad.venus);
-          if (chartToLoad.mars) planets.mars = parsePosition(chartToLoad.mars);
-          if (chartToLoad.jupiter) planets.jupiter = parsePosition(chartToLoad.jupiter);
-          if (chartToLoad.saturn) planets.saturn = parsePosition(chartToLoad.saturn);
-          if (chartToLoad.uranus) planets.uranus = parsePosition(chartToLoad.uranus);
-          if (chartToLoad.neptune) planets.neptune = parsePosition(chartToLoad.neptune);
-          if (chartToLoad.pluto) planets.pluto = parsePosition(chartToLoad.pluto);
-          
+          const planets: Record<string, Planet> = {};
+          if (parsedPlanets) {
+            if (parsedPlanets.sun) planets.sun = parsePosition(parsedPlanets.sun);
+            if (parsedPlanets.moon) planets.moon = parsePosition(parsedPlanets.moon);
+            if (parsedPlanets.mercury) planets.mercury = parsePosition(parsedPlanets.mercury);
+            if (parsedPlanets.venus) planets.venus = parsePosition(parsedPlanets.venus);
+            if (parsedPlanets.mars) planets.mars = parsePosition(parsedPlanets.mars);
+            if (parsedPlanets.jupiter) planets.jupiter = parsePosition(parsedPlanets.jupiter);
+            if (parsedPlanets.saturn) planets.saturn = parsePosition(parsedPlanets.saturn);
+            if (parsedPlanets.uranus) planets.uranus = parsePosition(parsedPlanets.uranus);
+            if (parsedPlanets.neptune) planets.neptune = parsePosition(parsedPlanets.neptune);
+            if (parsedPlanets.pluto) planets.pluto = parsePosition(parsedPlanets.pluto);
+            if (parsedPlanets.northnode) planets.northnode = parsePosition(parsedPlanets.northnode);
+            if (parsedPlanets.southnode) planets.southnode = parsePosition(parsedPlanets.southnode);
+            if (parsedPlanets.lilith) planets.lilith = parsePosition(parsedPlanets.lilith);
+          }
+
           // Parse ascendant
-          const ascendant = parsePosition(chartToLoad.ascendant) || { 
-            name: 'Unknown', symbol: '?', longitude: 0, degree: 0 
+          const ascendant = parsedAscendant ? parsePosition(parsedAscendant) : { 
+            name: 'Unknown', symbol: ZODIAC_SYMBOLS[0], longitude: 0, degree: 0 
           };
           
+          // Parse midheaven if available
+          if (parsedPlanets?.midheaven) {
+            planets.midheaven = parsePosition(parsedPlanets.midheaven);
+          }
+          
+          // Update form data
+          setFormData({
+            title: chartToLoad.title,
+            date: chartToLoad.date.toISOString().split('T')[0],
+            time: chartToLoad.time,
+            location: chartToLoad.location
+          });
+
           const convertedChart: ChartData = {
-            title: chartToLoad.name,
-            date: new Date(chartToLoad.birthDate).toLocaleDateString(),
-            time: chartToLoad.birthTime,
-            location: chartToLoad.birthPlace,
             planets,
-            houses: chartToLoad.houses as any || {},
-            aspects: chartToLoad.aspects as any || [],
+            houses: parsedHouses || {},
             ascendant,
+            aspects: parsedAspects || [],
+            title: chartToLoad.title,
+            date: chartToLoad.date.toISOString().split('T')[0],
+            time: chartToLoad.time,
+            location: chartToLoad.location,
             id: chartToLoad.id,
+            userId: chartToLoad.userId,
+            rawOutput: result?.output
           };
           
           // Set the chart data
@@ -914,79 +1008,66 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
         return;
       }
       
-      // Convert the stored chart to our ChartData format
-      // Parse planet positions from stored strings
-      const planets: Record<string, any> = {};
-      
-      // Helper function to parse stored position strings like "Aries 15.5°"
-      const parsePosition = (posStr: string | null): { name: string; symbol: string; longitude: number; degree: number } | null => {
-        if (!posStr) return null;
-        
-        // Extract sign name and degrees
-        const match = posStr.match(/([A-Za-z]+)\s+(\d+\.?\d*)°/);
-        if (!match) return null;
-        
-        const signName = match[1];
-        const degree = parseFloat(match[2]);
-        
-        // Find sign index
-        const signIndex = ZODIAC_SIGNS.findIndex(sign => 
-          sign.toLowerCase() === signName.toLowerCase()
-        );
-        
-        if (signIndex === -1) return null;
-        
-        // Calculate absolute longitude (0-360)
-        const longitude = signIndex * 30 + degree;
-        
-        // Create proper zodiac symbol
-        const symbol = ZODIAC_SYMBOLS[signIndex];
-        
-        return {
-          name: ZODIAC_SIGNS[signIndex],
-          symbol,
-          longitude,
-          degree
-        };
-      };
-      
-      // Add planets
-      if (savedChart.sun) planets.sun = parsePosition(savedChart.sun);
-      if (savedChart.moon) planets.moon = parsePosition(savedChart.moon);
-      if (savedChart.mercury) planets.mercury = parsePosition(savedChart.mercury);
-      if (savedChart.venus) planets.venus = parsePosition(savedChart.venus);
-      if (savedChart.mars) planets.mars = parsePosition(savedChart.mars);
-      if (savedChart.jupiter) planets.jupiter = parsePosition(savedChart.jupiter);
-      if (savedChart.saturn) planets.saturn = parsePosition(savedChart.saturn);
-      if (savedChart.uranus) planets.uranus = parsePosition(savedChart.uranus);
-      if (savedChart.neptune) planets.neptune = parsePosition(savedChart.neptune);
-      if (savedChart.pluto) planets.pluto = parsePosition(savedChart.pluto);
-      if (savedChart.northnode) planets.northnode = parsePosition(savedChart.northnode);
-      if (savedChart.southnode) planets.southnode = parsePosition(savedChart.southnode);
-      if (savedChart.lilith) planets.lilith = parsePosition(savedChart.lilith);
+      // Parse planets from JSON
+      const parsedPlanets = typeof savedChart.planets === 'string' 
+        ? JSON.parse(savedChart.planets) 
+        : savedChart.planets;
 
-      
-     
+      // Parse houses from JSON
+      const parsedHouses = typeof savedChart.houses === 'string'
+        ? JSON.parse(savedChart.houses)
+        : savedChart.houses;
+
+      // Parse aspects from JSON
+      const parsedAspects = typeof savedChart.aspects === 'string'
+        ? JSON.parse(savedChart.aspects)
+        : savedChart.aspects;
+
+      // Parse ascendant from JSON
+      const parsedAscendant = typeof savedChart.ascendant === 'string'
+        ? JSON.parse(savedChart.ascendant)
+        : savedChart.ascendant;
+
+      // Add planets
+      const planets: Record<string, Planet> = {};
+      if (parsedPlanets) {
+        if (parsedPlanets.sun) planets.sun = parsePosition(parsedPlanets.sun);
+        if (parsedPlanets.moon) planets.moon = parsePosition(parsedPlanets.moon);
+        if (parsedPlanets.mercury) planets.mercury = parsePosition(parsedPlanets.mercury);
+        if (parsedPlanets.venus) planets.venus = parsePosition(parsedPlanets.venus);
+        if (parsedPlanets.mars) planets.mars = parsePosition(parsedPlanets.mars);
+        if (parsedPlanets.jupiter) planets.jupiter = parsePosition(parsedPlanets.jupiter);
+        if (parsedPlanets.saturn) planets.saturn = parsePosition(parsedPlanets.saturn);
+        if (parsedPlanets.uranus) planets.uranus = parsePosition(parsedPlanets.uranus);
+        if (parsedPlanets.neptune) planets.neptune = parsePosition(parsedPlanets.neptune);
+        if (parsedPlanets.pluto) planets.pluto = parsePosition(parsedPlanets.pluto);
+        if (parsedPlanets.northnode) planets.northnode = parsePosition(parsedPlanets.northnode);
+        if (parsedPlanets.southnode) planets.southnode = parsePosition(parsedPlanets.southnode);
+        if (parsedPlanets.lilith) planets.lilith = parsePosition(parsedPlanets.lilith);
+      }
+
       // Parse ascendant
-      const ascendant = parsePosition(savedChart.ascendant) || { 
+      const ascendant = parsedAscendant ? parsePosition(parsedAscendant) : { 
         name: 'Unknown', symbol: ZODIAC_SYMBOLS[0], longitude: 0, degree: 0 
       };
       
       // Parse midheaven if available
-      if (savedChart.midheaven) {
-        planets.midheaven = parsePosition(savedChart.midheaven);
+      if (parsedPlanets?.midheaven) {
+        planets.midheaven = parsePosition(parsedPlanets.midheaven);
       }
       
       const convertedChart: ChartData = {
-        title: savedChart.name,
-        date: new Date(savedChart.birthDate).toLocaleDateString(),
-        time: savedChart.birthTime,
-        location: savedChart.birthPlace,
         planets,
-        houses: savedChart.houses as any || {},
-        aspects: savedChart.aspects as any || [],
+        houses: parsedHouses || {},
         ascendant,
+        aspects: parsedAspects || [],
+        title: savedChart.title,
+        date: new Date(savedChart.date).toISOString().split('T')[0],
+        time: savedChart.time,
+        location: savedChart.location,
         id: savedChart.id,
+        userId: savedChart.userId,
+        rawOutput: result?.output
       };
       
       // Set chart data and show the chart
@@ -995,10 +1076,16 @@ function SwissEphContent({ chartIdFromUrl }: { chartIdFromUrl: string | null }) 
       
       // Also update the form fields to match the chart data
       // This helps if user wants to make adjustments to the saved chart
-      const birthDate = new Date(savedChart.birthDate);
+      const birthDate = new Date(savedChart.date);
+      setFormData({
+        title: savedChart.title,
+        date: birthDate.toISOString().split('T')[0],
+        time: savedChart.time,
+        location: savedChart.location
+      });
       setDate(`${birthDate.getDate().toString().padStart(2, '0')}.${(birthDate.getMonth() + 1).toString().padStart(2, '0')}.${birthDate.getFullYear()}`);
-      setTime(savedChart.birthTime);
-      setLocation(savedChart.birthPlace);
+      setTime(savedChart.time);
+      setLocation(savedChart.location);
       
       // Scroll the chart into view
       setTimeout(() => {
