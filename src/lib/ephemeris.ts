@@ -5,6 +5,13 @@ import { parse } from 'csv-parse/sync';
 import ephemeris from 'ephemeris';
 // Import our robust wrapper that works in both client and server environments
 
+export interface CityData {
+  name: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+}
 
 // Constants
 const ZODIAC_SIGNS = [
@@ -21,7 +28,7 @@ let timeZonesCache: Map<string, any> | null = null;
 let countriesCache: Map<string, string> | null = null;
 
 // Helper function to load and parse the cities CSV file
-function loadCitiesData(): any[] {
+async function loadCitiesData(): Promise<any[]> {
   if (citiesCache) return citiesCache;
   
   // Skip file operations in browser environment
@@ -37,12 +44,20 @@ function loadCitiesData(): any[] {
     let fileContent;
     
     try {
-      fileContent = fs.readFileSync(csvPath, 'utf8');
+      // Use fs.promises for better error handling
+      fileContent = await fs.promises.readFile(csvPath, 'utf8');
     } catch (readError) {
       console.warn('Could not read cities file:', readError);
-      const emptyArray: any[] = [];
-      citiesCache = emptyArray;
-      return emptyArray;
+      // Try alternative path for development environment
+      const altPath = path.join(process.cwd(), 'src', 'public', 'worldcities.csv');
+      try {
+        fileContent = await fs.promises.readFile(altPath, 'utf8');
+      } catch (altError) {
+        console.warn('Could not read cities file from alternative path:', altError);
+        const emptyArray: any[] = [];
+        citiesCache = emptyArray;
+        return emptyArray;
+      }
     }
     
     // Parse CSV data
@@ -730,7 +745,7 @@ export async function geocodeLocation(locationInput: string): Promise<{
     }
     
     // Get city data from CSV
-    const cities = loadCitiesData();
+    const cities = await loadCitiesData();
     const searchTerms = locationInput.toLowerCase().trim().split(',').map(part => part.trim());
     const cityName = searchTerms[0]; // First part is assumed to be the city name
     
@@ -1359,4 +1374,34 @@ function createDefaultChart() {
     houses,
     aspects: []
   };
+}
+
+export async function getCities(locationInput: string): Promise<CityData[]> {
+  try {
+    // Get city data from CSV
+    const cities = await loadCitiesData();
+    const searchTerms = locationInput.toLowerCase().trim().split(',').map(part => part.trim());
+    const cityName = searchTerms[0]; // First part is assumed to be the city name
+    const countryName = searchTerms[1] || ''; // Second part is the country name if provided
+
+    // Filter cities based on the search terms
+    const filteredCities = cities.filter((city: any) => {
+      const matchesCity = city.city_ascii.toLowerCase().includes(cityName);
+      const matchesCountry = !countryName || 
+        (city.country && city.country.toLowerCase().includes(countryName));
+      return matchesCity && matchesCountry;
+    });
+
+    // Convert to CityData format
+    return filteredCities.map((city: any) => ({
+      name: city.city_ascii,
+      country: city.country,
+      latitude: parseFloat(city.lat),
+      longitude: parseFloat(city.lng),
+      timezone: city.timezone || 'UTC'
+    }));
+  } catch (error) {
+    console.error('Error in getCities:', error);
+    return [];
+  }
 }
