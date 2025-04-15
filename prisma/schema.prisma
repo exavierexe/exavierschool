@@ -13,17 +13,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 model User {
-  id              Int @id @default(autoincrement())  
-  clerkId         String? @unique
-  username        String? @unique
-  defaultChartId  Int?
-  birthCharts     BirthChart[]
-  tarotReadings   TarotReading[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            Int           @id @default(autoincrement())
+  clerkId       String        @unique
+  email         String        @unique
+  name          String?
+  defaultChart  Int?
+  birthCharts   BirthChart[]
+  tarotReadings TarotReading[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model FormSubmission {
@@ -43,45 +42,76 @@ model FormSubmission {
 }
 
 model BirthChart {
-  id          Int      @id @default(autoincrement())
-  name        String
-  birthDate   DateTime
-  birthTime   String
-  birthPlace  String
-  ascendant   String?
-  midheaven   String?  // Medium Coeli (MC)
-  sun         String?
-  moon        String?
-  mercury     String?
-  venus       String?
-  mars        String?
-  jupiter     String?
-  saturn      String?
-  uranus      String?
-  neptune     String?
-  pluto       String?
-  northnode   String?  
-  southnode   String?  
-  chiron      String?  
-  lilith      String?  
-  houses      Json?
-  aspects     Json?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
-  userId      Int
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  date      DateTime
+  time      String
+  location  String
+  planets   Json
+  ascendant Json
+  houses    Json
+  aspects   Json
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TarotReading {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  name       String
+  spreadType String
+  cards      Json
+  question   String?
+  notes      String?
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model City {
   id          Int      @id @default(autoincrement())
-  name        String
-  spreadType  String   // "three-card", "celtic-cross", "single-card", etc.
-  cards       Json     // Array of card objects with position, name, etc.
-  question    String?
-  notes       String?
+  city        String
+  city_ascii  String
+  lat         Float
+  lng         Float
+  country     String
+  iso2        String
+  iso3        String
+  admin_name  String?
+  capital     String?
+  population  Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  user        User?    @relation(fields: [userId], references: [id])
-  userId      Int?
+
+  @@index([city_ascii])
+  @@index([country])
+  @@index([iso2])
+  @@index([iso3])
+}
+
+model TimeZone {
+  id          Int      @id @default(autoincrement())
+  zoneName    String   @unique
+  countryCode String
+  zoneType    String
+  startTime   BigInt
+  utcOffset   Int
+  isDst       Boolean
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([countryCode])
+  @@index([zoneName])
+}
+
+model Country {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
 }

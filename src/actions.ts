@@ -1549,3 +1549,60 @@ function parseSwissEphOutput(output: string, location: any) {
   
   return parsedData;
 }
+
+// Function to query city and timezone information from the database
+export async function queryCityAndTimezone(cityName: string, countryCode?: string) {
+  try {
+    // First try to find the city in our database
+    const city = await prisma.city.findFirst({
+      where: {
+        name: {
+          contains: cityName,
+          mode: 'insensitive'
+        },
+        ...(countryCode && {
+          countryCode: {
+            equals: countryCode,
+            mode: 'insensitive'
+          }
+        })
+      },
+      orderBy: {
+        population: 'desc' // Prefer larger cities if multiple matches
+      }
+    });
+
+    if (!city) {
+      return null;
+    }
+
+    // Then get the timezone information
+    const timezone = await prisma.timeZone.findFirst({
+      where: {
+        countryCode: city.countryCode,
+        zoneName: {
+          contains: city.timezone,
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    return {
+      city: {
+        name: city.name,
+        country: city.country,
+        latitude: city.latitude,
+        longitude: city.longitude,
+        timezone: city.timezone
+      },
+      timezone: timezone ? {
+        zoneName: timezone.zoneName,
+        utcOffset: timezone.utcOffset,
+        countryName: city.country
+      } : null
+    };
+  } catch (error) {
+    console.error('Error querying city and timezone:', error);
+    return null;
+  }
+}

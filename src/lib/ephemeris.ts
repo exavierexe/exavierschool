@@ -730,289 +730,89 @@ function findTimeZone(latitude: number, longitude: number, countryCode: string):
   }
 }
 
-export async function geocodeLocation(locationInput: string): Promise<{
+interface LocationData {
   latitude: number;
   longitude: number;
   formattedAddress: string;
-  timeZone?: {
-    zoneName: string;
-    utcOffset: number;
-    countryName: string;
-  };
-}> {
+  countryCode: string;
+  timezone: string;
+  utcOffset: number;
+}
+
+interface FallbackLocation {
+  latitude: number;
+  longitude: number;
+  formattedAddress: string;
+  countryCode: string;
+  timezoneName: string;
+}
+
+const fallbackLocationDatabase: FallbackLocation[] = [
+  // Add your fallback locations here
+  {
+    latitude: 40.7128,
+    longitude: -74.0060,
+    formattedAddress: 'New York, United States',
+    countryCode: 'US',
+    timezoneName: 'America/New_York'
+  },
+  // Add more fallback locations as needed
+];
+
+// Import the queryCityAndTimezone function from actions.ts
+import { queryCityAndTimezone } from '../actions';
+
+export async function geocodeLocation(locationInput: string): Promise<LocationData | null> {
   try {
-    console.log(`Geocoding location: "${locationInput}"`);
-    
-    if (!locationInput || locationInput.trim() === '') {
+    // First try to find the location in our database
+    const [cityName, countryCode] = locationInput.split(',').map(part => part.trim());
+    const dbResult = await queryCityAndTimezone(cityName, countryCode);
+
+    if (dbResult) {
       return {
-        latitude: 0,
-        longitude: 0,
-        formattedAddress: 'Please enter a location name or coordinates'
+        latitude: dbResult.city.latitude,
+        longitude: dbResult.city.longitude,
+        formattedAddress: `${dbResult.city.name}, ${dbResult.city.country}`,
+        countryCode: dbResult.city.country,
+        timezone: dbResult.timezone?.zoneName || dbResult.city.timezone,
+        utcOffset: dbResult.timezone?.utcOffset || 0
       };
     }
-    
-    // Check if input is coordinates in format "latitude,longitude"
-    const coordsMatch = locationInput.match(/^\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$/);
-    if (coordsMatch) {
-      const latitude = parseFloat(coordsMatch[1]);
-      const longitude = parseFloat(coordsMatch[2]);
-      
-      // Validate coordinate ranges
-      if (isNaN(latitude) || isNaN(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-        console.error(`Invalid coordinates: ${locationInput}`);
-        return {
-          latitude: 0,
-          longitude: 0,
-          formattedAddress: 'Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180.'
-        };
-      }
-      
-      console.log(`Using direct coordinates: lat ${latitude}, lon ${longitude}`);
-      
-      // Find timezone for these coordinates
-      // Use a default country code 'US' when none is provided
-      const timeZone = findTimeZone(latitude, longitude, 'US');
-      
+
+    // If not found in database, try the CSV file
+    const cities = await getCities(locationInput);
+    if (cities.length > 0) {
+      const city = cities[0];
       return {
-        latitude,
-        longitude,
-        formattedAddress: `Coordinates: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-        timeZone
+        latitude: city.latitude,
+        longitude: city.longitude,
+        formattedAddress: `${city.name}, ${city.country}`,
+        countryCode: city.country,
+        timezone: city.timezone,
+        utcOffset: 0 // We'll calculate this based on the timezone
       };
     }
-    
-    // Get city data from CSV
-    const cities = await loadCitiesData();
-    const searchTerms = locationInput.toLowerCase().trim().split(',').map(part => part.trim());
-    const cityName = searchTerms[0]; // First part is assumed to be the city name
-    
-    let matches: any[] = [];
-    
-    // Try exact match first (case insensitive)
-    matches = cities.filter(city => 
-      city.city_ascii.toLowerCase() === cityName || 
-      city.city.toLowerCase() === cityName
+
+    // If still not found, try the fallback database
+    const fallbackLocation = fallbackLocationDatabase.find(loc => 
+      loc.formattedAddress.toLowerCase().includes(locationInput.toLowerCase())
     );
-    
-    // If no exact matches, try contains match
-    if (matches.length === 0) {
-      matches = cities.filter(city => 
-        city.city_ascii.toLowerCase().includes(cityName) || 
-        city.city.toLowerCase().includes(cityName) ||
-        cityName.includes(city.city_ascii.toLowerCase()) ||
-        cityName.includes(city.city.toLowerCase())
-      );
-    }
-    
-    // If we have country or state/province in the search, filter by that
-    if (matches.length > 0 && searchTerms.length > 1) {
-      const locationDetails = searchTerms.slice(1).join(' '); // Get everything after the city name
-      
-      // Filter by country or admin_name (state/province) if provided
-      const filteredMatches = matches.filter(city => 
-        city.country.toLowerCase().includes(locationDetails) || 
-        locationDetails.includes(city.country.toLowerCase()) ||
-        city.admin_name.toLowerCase().includes(locationDetails) ||
-        locationDetails.includes(city.admin_name.toLowerCase()) ||
-        city.iso2.toLowerCase() === locationDetails || 
-        city.iso3.toLowerCase() === locationDetails
-      );
-      
-      // If we found matches, use them; otherwise keep the original matches
-      if (filteredMatches.length > 0) {
-        matches = filteredMatches;
-      }
-    }
-    
-    // Sort by population (descending) to get major cities first
-    matches.sort((a, b) => {
-      const popA = parseInt(a.population) || 0;
-      const popB = parseInt(b.population) || 0;
-      return popB - popA;
-    });
-    
-    // If we found matches, use the first one (highest population)
-    if (matches.length > 0) {
-      const match = matches[0];
-      const formattedAddress = `${match.city}, ${match.admin_name}, ${match.country}`;
-      
-      // Find the timezone for this location
-      const timeZone = findTimeZone(
-        parseFloat(match.lat),
-        parseFloat(match.lng),
-        match.iso2
-      );
-      
+
+    if (fallbackLocation) {
       return {
-        latitude: parseFloat(match.lat),
-        longitude: parseFloat(match.lng),
-        formattedAddress,
-        timeZone
+        latitude: fallbackLocation.latitude,
+        longitude: fallbackLocation.longitude,
+        formattedAddress: fallbackLocation.formattedAddress,
+        countryCode: fallbackLocation.countryCode,
+        timezone: fallbackLocation.timezoneName,
+        utcOffset: 0
       };
     }
-    
-    console.log(`City "${locationInput}" not found in CSV database`);
-    
-    // If CSV lookup failed, fall back to our database
-    const input = locationInput.toLowerCase().trim();
-    
-    // Try direct match with known locations
-    if (FALLBACK_LOCATIONS[input]) {
-      console.log('Using fallback location database for:', input);
-      
-      const location = FALLBACK_LOCATIONS[input];
-      
-      // If a time zone name is specified, look it up in our time zone database
-      if (location.timeZoneName) {
-        const timeZones = loadTimeZoneData();
-        if (timeZones.has(location.timeZoneName)) {
-          const tzData = timeZones.get(location.timeZoneName);
-          const countryName = loadCountryData().get(location.countryCode) || location.countryCode;
-          
-          console.log(`Found time zone ${location.timeZoneName} for ${input}: offset ${tzData.utcOffset} seconds, DST: ${tzData.isDst ? 'Yes' : 'No'}`);
-          
-          return {
-            ...location,
-            timeZone: {
-              zoneName: location.timeZoneName,
-              utcOffset: tzData.utcOffset,
-              countryName
-            }
-          };
-        } else {
-          console.log(`Time zone ${location.timeZoneName} not found in database for ${input}`);
-        }
-      }
-      
-      return location;
-    }
-    
-    // Try to match just the city name if it's part of a "City, State" format
-    const parts = input.split(',').map(part => part.trim());
-    if (parts.length > 0 && FALLBACK_LOCATIONS[parts[0]]) {
-      const location = FALLBACK_LOCATIONS[parts[0]];
-      console.log('Using fallback location database for city part:', parts[0]);
-      
-      // If a time zone name is specified, look it up in our time zone database
-      if (location.timeZoneName) {
-        const timeZones = loadTimeZoneData();
-        if (timeZones.has(location.timeZoneName)) {
-          const tzData = timeZones.get(location.timeZoneName);
-          const countryName = loadCountryData().get(location.countryCode) || location.countryCode;
-          
-          console.log(`Found time zone ${location.timeZoneName} for ${parts[0]}: offset ${tzData.utcOffset} seconds, DST: ${tzData.isDst ? 'Yes' : 'No'}`);
-          
-          return {
-            ...location,
-            timeZone: {
-              zoneName: location.timeZoneName,
-              utcOffset: tzData.utcOffset,
-              countryName
-            }
-          };
-        } else {
-          console.log(`Time zone ${location.timeZoneName} not found in database for ${parts[0]}`);
-        }
-      }
-      
-      return location;
-    }
-    
-    // Try partial matches
-    for (const [key, data] of Object.entries(FALLBACK_LOCATIONS)) {
-      if (input.includes(key) || key.includes(input)) {
-        console.log('Using fallback location database for partial match:', key);
-        
-        // If a time zone name is specified, look it up in our time zone database
-        if (data.timeZoneName) {
-          const timeZones = loadTimeZoneData();
-          if (timeZones.has(data.timeZoneName)) {
-            const tzData = timeZones.get(data.timeZoneName);
-            const countryName = loadCountryData().get(data.countryCode) || data.countryCode;
-            
-            console.log(`Found time zone ${data.timeZoneName} for ${key}: offset ${tzData.utcOffset} seconds, DST: ${tzData.isDst ? 'Yes' : 'No'}`);
-            
-            return {
-              ...data,
-              timeZone: {
-                zoneName: data.timeZoneName,
-                utcOffset: tzData.utcOffset,
-                countryName
-              }
-            };
-          } else {
-            console.log(`Time zone ${data.timeZoneName} not found in database for ${key}`);
-          }
-        }
-        
-        return data;
-      }
-    }
-    
-    // Default if we couldn't find the location
-    return {
-      latitude: 0,
-      longitude: 0,
-      formattedAddress: `Location "${locationInput}" not found. Please try a different city name.`,
-      // Provide UTC as a safe default timezone
-      timeZone: {
-        zoneName: 'UTC',
-        utcOffset: 0,
-        countryName: 'Unknown'
-      }
-    };
+
+    return null;
   } catch (error) {
-    console.error('Error geocoding location:', error);
-    
-    // Try fallback database if there was an error
-    try {
-      const input = locationInput.toLowerCase().trim();
-      if (FALLBACK_LOCATIONS[input]) {
-        console.log('Error occurred, using fallback location database');
-        const location = FALLBACK_LOCATIONS[input];
-        
-        // If a time zone name is specified, look it up in our time zone database
-        if (location.timeZoneName) {
-          try {
-            const timeZones = loadTimeZoneData();
-            if (timeZones.has(location.timeZoneName)) {
-              const tzData = timeZones.get(location.timeZoneName);
-              const countryName = loadCountryData().get(location.countryCode) || location.countryCode;
-              
-              console.log(`Found time zone ${location.timeZoneName} for ${input}: offset ${tzData.utcOffset} seconds, DST: ${tzData.isDst ? 'Yes' : 'No'}`);
-              
-              return {
-                ...location,
-                timeZone: {
-                  zoneName: location.timeZoneName,
-                  utcOffset: tzData.utcOffset,
-                  countryName
-                }
-              };
-            }
-          } catch (tzError) {
-            console.error('Error loading timezone data for fallback:', tzError);
-          }
-        }
-        
-        return location;
-      }
-    } catch (e) {
-      // Ignore errors in fallback
-      console.error('Error in location fallback:', e);
-    }
-    
-    return {
-      latitude: 0,
-      longitude: 0,
-      formattedAddress: 'Error processing location. Please try again.',
-      // Provide UTC as a safe default timezone
-      timeZone: {
-        zoneName: 'UTC',
-        utcOffset: 0,
-        countryName: 'Unknown'
-      }
-    };
+    console.error('Error in geocodeLocation:', error);
+    return null;
   }
 }
 
