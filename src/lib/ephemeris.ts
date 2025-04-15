@@ -40,17 +40,17 @@ async function loadCitiesData(): Promise<any[]> {
   }
   
   try {
-    // Get the directory of the current file
-    const currentDir = __dirname;
-    console.log('Current directory:', currentDir);
+    // Get the root directory of the project
+    const rootDir = process.cwd();
+    console.log('Root directory:', rootDir);
     
     // Try multiple possible paths for the CSV file
     const possiblePaths = [
-      path.join(currentDir, 'worldcities.csv'),
-      path.join(currentDir, '..', 'worldcities.csv'),
-      path.join(currentDir, '..', 'public', 'worldcities.csv'),
-      path.join(process.cwd(), 'src', 'worldcities.csv'),
-      path.join(process.cwd(), 'src', 'public', 'worldcities.csv')
+      path.join(rootDir, 'src', 'lib', 'worldcities.csv'),
+      path.join(rootDir, 'src', 'worldcities.csv'),
+      path.join(rootDir, 'worldcities.csv'),
+      path.join(rootDir, '.next', 'server', 'src', 'lib', 'worldcities.csv'),
+      path.join(rootDir, '.next', 'server', 'src', 'worldcities.csv')
     ];
     
     let fileContent;
@@ -109,13 +109,33 @@ function loadTimeZoneData(): Map<string, any> {
   }
   
   try {
-    const csvPath = path.join(process.cwd(), 'src', 'public', 'TimeZoneDB.csv', 'time_zone.csv');
-    let fileContent;
+    const rootDir = process.cwd();
+    const possiblePaths = [
+      path.join(rootDir, 'src', 'lib', 'TimeZoneDB.csv', 'time_zone.csv'),
+      path.join(rootDir, 'src', 'TimeZoneDB.csv', 'time_zone.csv'),
+      path.join(rootDir, 'TimeZoneDB.csv', 'time_zone.csv'),
+      path.join(rootDir, '.next', 'server', 'src', 'lib', 'TimeZoneDB.csv', 'time_zone.csv'),
+      path.join(rootDir, '.next', 'server', 'src', 'TimeZoneDB.csv', 'time_zone.csv')
+    ];
     
-    try {
-      fileContent = fs.readFileSync(csvPath, 'utf8');
-    } catch (readError) {
-      console.warn('Could not read timezone file:', readError);
+    let fileContent;
+    let foundPath = '';
+    
+    for (const csvPath of possiblePaths) {
+      try {
+        console.log('Attempting to read timezone file from:', csvPath);
+        fileContent = fs.readFileSync(csvPath, 'utf8');
+        foundPath = csvPath;
+        console.log(`Successfully loaded timezone file from: ${csvPath}`);
+        break;
+      } catch (readError) {
+        console.log(`Could not read timezone file from ${csvPath}:`, readError.message);
+        continue;
+      }
+    }
+    
+    if (!fileContent) {
+      console.warn('Could not find timezone file in any of the expected locations');
       timeZonesCache = timeZonesMap;
       return timeZonesMap;
     }
