@@ -145,16 +145,22 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
                   ? JSON.parse(chart.ascendant)
                   : chart.ascendant;
 
+                const getSignAndDegree = (longitude: string) => {
+                  if (!longitude) return 'N/A';
+                  const [sign, degree] = longitude.split(' ');
+                  return `${sign} ${degree}`;
+                };
+
                 return (
                   <>
                     <div className="text-sm">
-                      <span className="font-medium">Sun:</span> {planets?.sun?.longitude || 'N/A'}
+                      <span className="font-medium">Sun:</span> {getSignAndDegree(planets?.sun?.longitude)}
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Moon:</span> {planets?.moon?.longitude || 'N/A'}
+                      <span className="font-medium">Moon:</span> {getSignAndDegree(planets?.moon?.longitude)}
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Ascendant:</span> {ascendant?.longitude || 'N/A'}
+                      <span className="font-medium">Ascendant:</span> {getSignAndDegree(ascendant?.longitude)}
                     </div>
                   </>
                 );

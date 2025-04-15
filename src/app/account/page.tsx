@@ -356,10 +356,11 @@ export default function AccountPage() {
                               >
                                 <div className="flex justify-between items-start">
                                   <div>
-                                    <h4 className="font-semibold">{chart.name}</h4>
+                                    <h4 className="font-semibold">{chart.title}</h4>
                                     <p className="text-xs text-gray-500">
-                                      {new Date(chart.birthDate).toLocaleDateString()}
+                                      {new Date(chart.date).toLocaleDateString()} at {chart.time}
                                     </p>
+                                    <p className="text-xs text-gray-500">{chart.location}</p>
                                   </div>
                                   
                                   {defaultChartId === chart.id && (
