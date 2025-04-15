@@ -505,115 +505,28 @@ function findTimeZone(latitude: number, longitude: number, countryCode: string):
   countryName: string; 
 } {
   try {
-    console.log(`Finding timezone for coordinates: ${latitude}, ${longitude}, country code: ${countryCode}`);
-    
-    // Normalize country code to uppercase
-    countryCode = countryCode.toUpperCase();
-    
     // Load timezone and country data
     const timeZones = loadTimeZoneData();
     const countries = loadCountryData();
     
-    // If we don't have enough data, return a default
-    if (!timeZones.size || !countries.size) {
-      console.log('Timezone data not loaded properly, using default timezone');
+    // First try to find the timezone using the date to account for DST
+    const now = new Date();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Get the current offset including DST
+    const currentOffset = -now.getTimezoneOffset() * 60; // Convert to seconds
+    
+    // If we found a valid timezone, use it
+    if (timezone) {
       return {
-        zoneName: 'UTC',
-        utcOffset: 0,
+        zoneName: timezone,
+        utcOffset: currentOffset,
         countryName: countries.get(countryCode) || countryCode || 'Unknown'
       };
     }
     
-    console.log(`Loaded ${timeZones.size} timezones and ${countries.size} country codes`);
-    
-    // Handle US timezones directly with longitude-based determination
-    // This fixes the issue where all US cities were getting Pacific/Honolulu
-    if (countryCode === 'US') {
-      // Special case handling for US - map longitude directly to timezones
-      // These boundaries are approximate but work for continental US
-      let usZoneName = '';
-      
-      // Basic logic for US timezone selection by longitude
-      if (longitude < -170) {
-        // Aleutian Islands
-        usZoneName = 'America/Adak';         // UTC-10 with DST
-      } else if (longitude < -140) {
-        // Alaska 
-        usZoneName = 'America/Anchorage';    // UTC-9 with DST
-      } else if (longitude < -115) {
-        // Pacific Time
-        usZoneName = 'America/Los_Angeles';  // UTC-8 with DST
-      } else if (longitude < -100) {
-        // Mountain Time
-        usZoneName = 'America/Denver';       // UTC-7 with DST
-      } else if (longitude < -85) {
-        // Central Time
-        usZoneName = 'America/Chicago';      // UTC-6 with DST
-      } else if (longitude < -65) {
-        // Eastern Time
-        usZoneName = 'America/New_York';     // UTC-5 with DST
-      } else {
-        // Default to Eastern for edge cases
-        usZoneName = 'America/New_York';
-      }
-      
-      // Hawaii special case
-      if (longitude < -150 && latitude < 25 && latitude > 15) {
-        usZoneName = 'Pacific/Honolulu';     // UTC-10 without DST
-      }
-      
-      console.log(`US special case handling: selected ${usZoneName} for longitude ${longitude}`);
-      
-      // Look up this zone and return it if found
-      for (const [zoneName, zoneData] of timeZones.entries()) {
-        if (zoneName === usZoneName) {
-          return {
-            zoneName,
-            utcOffset: zoneData.utcOffset,
-            countryName: countries.get(countryCode) || 'United States'
-          };
-        }
-      }
-      
-      // If we couldn't find the specific zone name, continue with standard approach
-      console.log(`Named timezone ${usZoneName} not found in data, falling back to standard approach`);
-    }
-    
-    // For other countries with multiple timezones, map these predefined zones
-    // This also serves as a hardcoded fallback if the TimeZoneDB data is inconsistent
-    const specialCountryMap: Record<string, string[]> = {
-      // North America
-      'CA': ['America/Toronto', 'America/Winnipeg', 'America/Edmonton', 'America/Vancouver'],
-      'US': ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Pacific/Honolulu', 'America/Anchorage'],
-      'MX': ['America/Mexico_City', 'America/Tijuana', 'America/Cancun'],
-      
-      // Europe
-      'GB': ['Europe/London'],
-      'DE': ['Europe/Berlin'],
-      'FR': ['Europe/Paris'],
-      'ES': ['Europe/Madrid'],
-      'IT': ['Europe/Rome'],
-      
-      // Asia
-      'JP': ['Asia/Tokyo', 'JST'], // Japan has only one timezone (Japan Standard Time)
-      'CN': ['Asia/Shanghai'],
-      'IN': ['Asia/Kolkata'],
-      'RU': ['Europe/Moscow', 'Asia/Yekaterinburg', 'Asia/Novosibirsk', 'Asia/Irkutsk', 'Asia/Vladivostok'],
-      
-      // Australia and Oceania
-      'AU': ['Australia/Sydney', 'Australia/Adelaide', 'Australia/Perth'],
-      'NZ': ['Pacific/Auckland']
-    };
-    
-    // Find all zones for this country
-    const countryZones: any[] = [];
-    for (const [zoneName, zoneData] of timeZones.entries()) {
-      if (zoneData.countryCode === countryCode) {
-        countryZones.push(zoneData);
-      }
-    }
-    
-    console.log(`Found ${countryZones.length} timezone entries for country code ${countryCode}`);
+    // Fallback to the existing logic if timezone detection fails
+    const countryZones = Array.from(timeZones.values()).filter(zone => zone.countryCode === countryCode);
     
     // If we found zones for this country, try to find the most appropriate one
     if (countryZones.length > 0) {
@@ -629,7 +542,6 @@ function findTimeZone(latitude: number, longitude: number, countryCode: string):
         };
       } else {
         // Multiple timezones for this country
-        
         // Calculate the rough longitudinal timezone
         // Each 15 degrees of longitude is approximately 1 hour
         const approxOffsetHours = Math.round(longitude / 15);
@@ -637,50 +549,9 @@ function findTimeZone(latitude: number, longitude: number, countryCode: string):
         
         console.log(`Approximate timezone offset based on longitude ${longitude}: ${approxOffsetHours} hours (${approxOffsetSeconds} seconds)`);
         
-        // For special countries, use more sophisticated logic
-        if (specialCountryMap[countryCode]) {
-          // Calculate approximate position within the country
-          // For now, just use longitude to determine which predefined zone to use
-          const zoneNames = specialCountryMap[countryCode];
-          
-          // Try to find all these predefined zones in our data
-          const specialZones: any[] = [];
-          for (const name of zoneNames) {
-            for (const zone of countryZones) {
-              if (zone.zoneName === name) {
-                specialZones.push(zone);
-                break;
-              }
-            }
-          }
-          
-          // If we found some of our special zones, use those
-          if (specialZones.length > 0) {
-            // Find closest offset to our approximate value
-            let closestZone = specialZones[0];
-            let minDifference = Number.MAX_VALUE;
-            
-            for (const zone of specialZones) {
-              const difference = Math.abs(zone.utcOffset - approxOffsetSeconds);
-              if (difference < minDifference) {
-                minDifference = difference;
-                closestZone = zone;
-              }
-            }
-            
-            console.log(`Selected special timezone for ${countryCode}: ${closestZone.zoneName} with offset ${closestZone.utcOffset} seconds`);
-            
-            return {
-              zoneName: closestZone.zoneName,
-              utcOffset: closestZone.utcOffset,
-              countryName: countries.get(countryCode) || countryCode || 'Unknown'
-            };
-          }
-        }
-        
-        // Standard approach for all other countries - find closest offset
-        let closestZone = countryZones[0];
+        // Find the closest timezone
         let minDifference = Number.MAX_VALUE;
+        let closestZone = countryZones[0];
         
         for (const zone of countryZones) {
           const difference = Math.abs(zone.utcOffset - approxOffsetSeconds);
