@@ -8,9 +8,8 @@ import ephemeris from 'ephemeris';
 export interface CityData {
   name: string;
   country: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
+  lat: number;
+  lng: number;
 }
 
 // Constants
@@ -1104,12 +1103,40 @@ export async function getCities(locationInput: string): Promise<CityData[]> {
     return filteredCities.map((city: any) => ({
       name: city.city_ascii,
       country: city.country,
-      latitude: parseFloat(city.lat),
-      longitude: parseFloat(city.lng),
+      lat: parseFloat(city.lat),
+      lng: parseFloat(city.lng),
       timezone: city.timezone || 'UTC'
     }));
   } catch (error) {
     console.error('Error in getCities:', error);
+    return [];
+  }
+}
+
+// Load city data from JSON file
+export async function loadCityData(): Promise<CityData[]> {
+  try {
+    const response = await fetch('/cities.json');
+    if (!response.ok) {
+      throw new Error('Failed to load city data');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error loading city data:', error);
+    return [];
+  }
+}
+
+// Get cities based on search query
+export async function getCities(query: string): Promise<CityData[]> {
+  try {
+    const response = await fetch(`/api/cities?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch cities');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching cities:', error);
     return [];
   }
 }

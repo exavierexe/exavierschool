@@ -4,6 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from './input';
 import { Label } from './label';
 import { getCities } from '@/lib/ephemeris';
+import { Loader2 } from 'lucide-react';
+
+interface CityData {
+  name: string;
+  country: string;
+  lat: number;
+  lng: number;
+}
 
 interface LocationInputProps {
   value: string;
@@ -13,11 +21,12 @@ interface LocationInputProps {
 }
 
 export function LocationInput({ value, onChange, loading, disabled }: LocationInputProps) {
-  const [suggestions, setSuggestions] = useState<Array<{ name: string; country: string }>>([]);
+  const [suggestions, setSuggestions] = useState<CityData[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Handle clicks outside the input and suggestions
   useEffect(() => {
@@ -32,33 +41,29 @@ export function LocationInput({ value, onChange, loading, disabled }: LocationIn
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch suggestions when input changes
-  useEffect(() => {
-    const fetchSuggestions = async () => {
-      if (!value.trim()) {
-        setSuggestions([]);
-        return;
-      }
+  const handleSearch = async (query: string) => {
+    if (query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
 
-      setIsLoading(true);
-      try {
-        const cities = await getCities(value);
-        setSuggestions(cities.map(city => ({
-          name: city.name,
-          country: city.country
-        })));
-        setShowSuggestions(true);
-      } catch (error) {
-        console.error('Error fetching city suggestions:', error);
-        setSuggestions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    setIsLoading(true);
+    setError(null);
 
-    const debounceTimer = setTimeout(fetchSuggestions, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [value]);
+    try {
+      const response = await fetch(`/api/cities?q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch cities');
+      }
+      const data = await response.json();
+      setSuggestions(data);
+    } catch (err) {
+      setError('Failed to load city suggestions');
+      console.error('Error fetching cities:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSuggestionClick = (suggestion: { name: string; country: string }) => {
     onChange(`${suggestion.name}, ${suggestion.country}`);
