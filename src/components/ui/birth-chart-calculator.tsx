@@ -124,79 +124,70 @@ export function SavedBirthCharts({ userId, onSelectChart }: SavedChartProps) {
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Saved Charts</h3>
       <div className="grid gap-4">
-        {charts.map((chart) => (
-          <div
-            key={chart.id}
-            className="p-4 border rounded-lg"
-          >
-            <div className="flex justify-between items-center">
-              <div className="font-medium">{chart.title}</div>
-              <div className="flex items-center gap-4 text-sm">
-                {(() => {
-                  const planets = typeof chart.planets === 'string' 
-                    ? JSON.parse(chart.planets) 
-                    : chart.planets;
-                  const ascendant = typeof chart.ascendant === 'string'
-                    ? JSON.parse(chart.ascendant)
-                    : chart.ascendant;
+        {charts.map((chart) => {
+          // Parse the data once per chart
+          const planets = typeof chart.planets === 'string' 
+            ? JSON.parse(chart.planets) 
+            : chart.planets;
+          const ascendant = typeof chart.ascendant === 'string'
+            ? JSON.parse(chart.ascendant)
+            : chart.ascendant;
 
-                  const getSignAndDegree = (longitude: any) => {
-                    if (!longitude) return 'N/A';
-                    if (typeof longitude === 'string') {
-                      const [sign, degree] = longitude.split(' ');
-                      return `${sign} ${degree}`;
-                    }
-                    if (typeof longitude === 'object' && longitude.longitude) {
-                      return longitude.longitude;
-                    }
-                    return 'N/A';
-                  };
+          // Helper function to safely get planet position
+          const getPlanetPosition = (planet: any) => {
+            if (!planet) return 'N/A';
+            if (typeof planet === 'string') return planet;
+            if (typeof planet === 'object' && planet.longitude) return planet.longitude;
+            return 'N/A';
+          };
 
-                  const getZodiacSymbol = (sign: string) => {
-                    const index = ZODIAC_SIGNS.findIndex(s => s.toLowerCase() === sign.toLowerCase());
-                    return index >= 0 ? ZODIAC_SYMBOLS[index] : '';
-                  };
+          // Helper function to get zodiac symbol
+          const getZodiacSymbol = (position: string) => {
+            if (!position || position === 'N/A') return '';
+            const sign = position.split(' ')[0];
+            const index = ZODIAC_SIGNS.findIndex(s => s.toLowerCase() === sign.toLowerCase());
+            return index >= 0 ? ZODIAC_SYMBOLS[index] : '';
+          };
 
-                  const formatPlanetInfo = (planet: any) => {
-                    const [sign, degree] = getSignAndDegree(planet).split(' ');
-                    return `${getZodiacSymbol(sign)} ${degree}`;
-                  };
+          return (
+            <div
+              key={chart.id}
+              className="p-4 border rounded-lg"
+            >
+              <div className="flex justify-between items-center">
+                <div className="font-medium">{chart.title}</div>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <span>☉</span>
+                    <span>{getZodiacSymbol(getPlanetPosition(planets?.sun))} {getPlanetPosition(planets?.sun)?.split(' ')[1] || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span>☽</span>
+                    <span>{getZodiacSymbol(getPlanetPosition(planets?.moon))} {getPlanetPosition(planets?.moon)?.split(' ')[1] || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span>AC</span>
+                    <span>{getZodiacSymbol(getPlanetPosition(ascendant))} {getPlanetPosition(ascendant)?.split(' ')[1] || ''}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-gray-500 mt-1">
+                {new Date(chart.date).toLocaleDateString()} at {chart.time}
+              </div>
+              <div className="text-sm text-gray-500">{chart.location}</div>
 
-                  return (
-                    <>
-                      <div className="flex items-center gap-1">
-                        <span>☉</span>
-                        <span>{formatPlanetInfo(planets?.sun)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span>☽</span>
-                        <span>{formatPlanetInfo(planets?.moon)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span>AC</span>
-                        <span>{formatPlanetInfo(ascendant)}</span>
-                      </div>
-                    </>
-                  );
-                })()}
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleView(chart)}
+                >
+                  View
+                </Button>
               </div>
             </div>
-            <div className="text-sm text-gray-500 mt-1">
-              {new Date(chart.date).toLocaleDateString()} at {chart.time}
-            </div>
-            <div className="text-sm text-gray-500">{chart.location}</div>
-
-            <div className="flex gap-2 mt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleView(chart)}
-              >
-                View
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showChart && chartData && (
