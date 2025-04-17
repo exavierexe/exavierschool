@@ -608,6 +608,10 @@ interface LocationData {
   countryCode: string;
   timezone: string;
   utcOffset: number;
+  city: string;
+  state: string;
+  province: string;
+  country: string;
 }
 
 interface FallbackLocation {
@@ -633,6 +637,20 @@ const fallbackLocationDatabase: FallbackLocation[] = [
 // Import the queryCityAndTimezone function from actions.ts
 import { queryCityAndTimezone } from '../actions';
 
+// US state abbreviations mapping
+const US_STATE_ABBREVIATIONS: Record<string, string> = {
+  'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+  'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+  'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+  'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+  'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+  'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+  'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+  'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+  'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+  'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
+};
+
 export async function geocodeLocation(locationInput: string): Promise<LocationData | null> {
   try {
     // First try to find the location in our database
@@ -646,7 +664,11 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         formattedAddress: `${dbResult.city.name}, ${dbResult.city.country}`,
         countryCode: dbResult.city.country,
         timezone: dbResult.timezone?.name || 'UTC',
-        utcOffset: dbResult.timezone?.offset || 0
+        utcOffset: dbResult.timezone?.offset || 0,
+        city: dbResult.city.name,
+        state: '', // Not available in current database
+        province: '', // Not available in current database
+        country: dbResult.city.country
       };
     }
 
@@ -660,7 +682,11 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         formattedAddress: `${city.name}, ${city.country}`,
         countryCode: city.country,
         timezone: city.timezone || 'UTC',
-        utcOffset: 0 // We'll calculate this based on the timezone
+        utcOffset: 0, // We'll calculate this based on the timezone
+        city: city.name,
+        state: '', // Not available in current database
+        province: '', // Not available in current database
+        country: city.country
       };
     }
 
@@ -676,7 +702,11 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         formattedAddress: fallbackLocation.formattedAddress,
         countryCode: fallbackLocation.countryCode,
         timezone: fallbackLocation.timezoneName || 'UTC',
-        utcOffset: 0
+        utcOffset: 0,
+        city: fallbackLocation.formattedAddress.split(',')[0].trim(),
+        state: '', // Not available in current database
+        province: '', // Not available in current database
+        country: fallbackLocation.countryCode
       };
     }
 
@@ -1089,19 +1119,50 @@ export async function getCities(locationInput: string): Promise<CityData[]> {
     // Get city data from CSV
     const cities = await loadCitiesData();
     const searchTerms = locationInput.toLowerCase().trim().split(',').map(part => part.trim());
-    const cityName = searchTerms[0]; // First part is assumed to be the city name
-    const countryName = searchTerms[1] || ''; // Second part is the country name if provided
+    
+    // Parse location components
+    const cityName = searchTerms[0];
+    const stateOrCountry = searchTerms[1] || '';
+    const country = searchTerms[2] || '';
+    
+    // Check if stateOrCountry is a US state abbreviation
+    const stateName = US_STATE_ABBREVIATIONS[stateOrCountry.toUpperCase()] || stateOrCountry;
 
     // Filter cities based on the search terms
     const filteredCities = cities.filter((city: any) => {
       const matchesCity = city.city_ascii.toLowerCase().includes(cityName);
-      const matchesCountry = !countryName || 
-        (city.country && city.country.toLowerCase().includes(countryName));
-      return matchesCity && matchesCountry;
+      
+      // Check if the city matches the state/province (admin_name) or country
+      const matchesState = !stateName || 
+        (city.admin_name && city.admin_name.toLowerCase().includes(stateName.toLowerCase()));
+      
+      const matchesCountry = !country || 
+        (city.country && city.country.toLowerCase().includes(country.toLowerCase()));
+      
+      // For US cities, also check if the state matches when using abbreviations
+      const matchesUSState = stateOrCountry.length === 2 && 
+        city.iso2 === 'US' && 
+        city.admin_name && 
+        city.admin_name.toLowerCase().includes(stateName.toLowerCase());
+      
+      return matchesCity && (matchesState || matchesUSState) && matchesCountry;
+    });
+
+    // Sort results by relevance
+    const sortedCities = filteredCities.sort((a: any, b: any) => {
+      // Prioritize exact matches
+      const aExactMatch = a.city_ascii.toLowerCase() === cityName.toLowerCase();
+      const bExactMatch = b.city_ascii.toLowerCase() === cityName.toLowerCase();
+      if (aExactMatch !== bExactMatch) return bExactMatch ? 1 : -1;
+      
+      // Then by population (if available)
+      if (a.population && b.population) return b.population - a.population;
+      
+      return 0;
     });
 
     // Convert to CityData format
-    return filteredCities.map((city: any) => ({
+    return sortedCities.map((city: any) => ({
       name: city.city_ascii,
       country: city.country,
       latitude: parseFloat(city.lat),
