@@ -438,6 +438,12 @@ export const querySwissEph = async (params: {
         offsetHours = sign * parseInt(timezoneMatch[2]);
         offsetMinutes = sign * parseInt(timezoneMatch[3]);
         totalOffsetMinutes = (offsetHours * 60) + offsetMinutes;
+      } else {
+        // If no UTC offset in timezone name, calculate from longitude
+        const approxOffsetHours = Math.round(geocodedLocation.longitude / 15);
+        totalOffsetMinutes = approxOffsetHours * 60;
+        offsetHours = approxOffsetHours;
+        offsetMinutes = 0;
       }
       
       timeZoneInfo = {
@@ -453,71 +459,26 @@ export const querySwissEph = async (params: {
     }
     
     console.log(`Time zone: ${timeZoneInfo.name}, offset: ${timeZoneInfo.offsetHours}:${Math.abs(timeZoneInfo.offsetMinutes).toString().padStart(2, '0')}`);
-    console.log(hour)
-    console.log(minute)
-    // Get the timezone offset in hours and minutes for display
-    let totalOffsetMinutes = 0;
-    let offsetHours = 0;
-    let offsetMinutes = 0;
-
-    if (geocodedLocation.timezone) {
-      // Parse the timezone string to get offset
-      const timezoneMatch = geocodedLocation.timezone.match(/UTC([+-])(\d+):(\d+)/);
-      if (timezoneMatch) {
-        const sign = timezoneMatch[1] === '+' ? 1 : -1;
-        offsetHours = sign * parseInt(timezoneMatch[2]);
-        offsetMinutes = sign * parseInt(timezoneMatch[3]);
-        totalOffsetMinutes = (offsetHours * 60) + offsetMinutes;
-      }
-    } else {
-      // Fallback to longitude-based calculation
-      const approxOffsetHours = Math.round(geocodedLocation.longitude / 15);
-      totalOffsetMinutes = approxOffsetHours * 60;
-      offsetHours = approxOffsetHours;
-      offsetMinutes = 0;
-    }
     
     // Format timezone values for display
-    const tzSignA = totalOffsetMinutes >= 0 ? '+' : '-';
-    const formattedHours = Math.abs(offsetHours).toString().padStart(2, '0');
-    const formattedMinutes = Math.abs(offsetMinutes).toString().padStart(2, '0');
+    const tzSign = timeZoneInfo.totalOffsetMinutes >= 0 ? '+' : '-';
+    const formattedHours = Math.abs(timeZoneInfo.offsetHours).toString().padStart(2, '0');
+    const formattedMinutes = Math.abs(timeZoneInfo.offsetMinutes).toString().padStart(2, '0');
     
     // Create a Date object with the local birth time (not UTC)
-    // The ephemeris.js library expects a Date object with the birth time in local time
-    // When we pass this Date object to the ephemeris library alongside the longitude/latitude
-    // the library will handle the astronomical calculations correctly
-    console.log("start")
-    console.log(tzSignA)
-    console.log(formattedHours)
-    console.log(formattedMinutes)
     const formattedDay = day.toString().padStart(2, '0')
     const formattedMonth = month.toString().padStart(2, '0')
     const formattedYear = year.toString().padStart(4, '0')
     const formattedHour = hour.toString().padStart(2, '0')
     const formattedMinute = minute.toString().padStart(2, '0')
     
-    console.log("formatted date")
-    console.log(formattedYear)
-    console.log(formattedMonth)
-    console.log(formattedDay)
-    
-    const dateObj = new Date(`${formattedYear}-${formattedMonth}-${formattedDay}T${formattedHour}:${formattedMinute}:00${tzSignA}${formattedHours}:${formattedMinutes}`);
-    const dateObj2 = new Date(`1995-09-08T19:05:00-4:00`)
-    
-    console.log(dateObj)
-    console.log(dateObj2)
-    console.log(`${formattedYear}`+"-"+`${formattedMonth}`+"-"+`${formattedDay}`+"T"+`${hour}`+":"+`${minute}`+":00"+`${tzSignA}`+`${formattedHours}`+":"+`${formattedMinutes}`)
-    console.log(`${year}`+"-"+`${month}`+"-"+`${day}`+"T"+`${hour}`+":"+`${minute}`+":00"+`${tzSignA}`+`${formattedHours}`+":"+`${formattedMinutes}`)
-    
-    console.log(hour)
-    console.log(minute)
-    console.log(timeZoneInfo.offsetHours)
+    const dateObj = new Date(`${formattedYear}-${formattedMonth}-${formattedDay}T${formattedHour}:${formattedMinute}:00${tzSign}${formattedHours}:${formattedMinutes}`);
     
     // Store the timezone offset information separately to pass to the ephemeris calculation
-    const timeZoneOffsetSeconds = totalOffsetMinutes * 60;
+    const timeZoneOffsetSeconds = timeZoneInfo.totalOffsetMinutes * 60;
     
     console.log(`Input local time: ${year}-${month}-${day} ${hour}:${minute}:${second}`);
-    console.log(`Timezone offset: ${offsetHours} hours, ${offsetMinutes} minutes (${totalOffsetMinutes} minutes total)`);
+    console.log(`Timezone offset: ${timeZoneInfo.offsetHours} hours, ${timeZoneInfo.offsetMinutes} minutes (${timeZoneInfo.totalOffsetMinutes} minutes total)`);
     console.log(`Timezone offset in seconds: ${timeZoneOffsetSeconds}`);
     console.log(`Parsed Date object (local time): ${dateObj.toString()}`);
     console.log(`UTC representation: ${dateObj.toUTCString()}`);
@@ -526,8 +487,6 @@ export const querySwissEph = async (params: {
     // This will automatically handle fallbacks if the module isn't available
     // For server components/actions, we use the server-side implementation
     // const ephemerisJs = require('./lib/server-ephemeris');
-    console.log(hour)
-    console.log(minute)
     
     const ascendantobj = chartascendant(formattedYear, formattedMonth, formattedDay, hour, minute, geocodedLocation.latitude, geocodedLocation.longitude)
     const ascendantdegree = ascendantobj.ascdegree
@@ -773,7 +732,7 @@ export const querySwissEph = async (params: {
  - State/Province: ${geocodedLocation.state || geocodedLocation.province || 'Unknown'}
  - Country: ${geocodedLocation.country || 'Unknown'}
  - Time Zone: ${geocodedLocation.timezone || timeZoneInfo.name}
- - UTC Offset: ${formattedHours}:${formattedMinutes}
+ - UTC Offset: ${tzSign}${formattedHours}:${formattedMinutes}
  
  ---- EPHEMERIS OUTPUT ----
 ${formattedOutput}`;
