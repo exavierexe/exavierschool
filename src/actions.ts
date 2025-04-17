@@ -763,8 +763,6 @@ export const querySwissEph = async (params: {
      const locationInfo = `
  Date (Local): ${date}
  Time (Local): ${time}
- Date (UTC): ${utcDateStr}
- Time (UTC): ${utcTimeStr}
  Location: ${geocodedLocation.formattedAddress}
  ${timezoneInfoText}
  Latitude: ${geocodedLocation.latitude.toFixed(4)}° ${geocodedLocation.latitude >= 0 ? 'N' : 'S'}
@@ -775,7 +773,7 @@ export const querySwissEph = async (params: {
  - State/Province: ${geocodedLocation.state || geocodedLocation.province || 'Unknown'}
  - Country: ${geocodedLocation.country || 'Unknown'}
  - Time Zone: ${geocodedLocation.timezone || timeZoneInfo.name}
- - UTC Offset: ${timeZoneInfo.totalOffsetMinutes >= 0 ? '+' : '-'}${Math.abs(timeZoneInfo.offsetHours).toString().padStart(2, '0')}:${Math.abs(timeZoneInfo.offsetMinutes).toString().padStart(2, '0')}
+ - UTC Offset: ${formattedHours}:${formattedMinutes}
  
  ---- EPHEMERIS OUTPUT ----
 ${formattedOutput}`;
