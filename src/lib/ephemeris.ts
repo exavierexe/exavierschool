@@ -5,11 +5,33 @@ import { parse } from 'csv-parse/sync';
 import ephemeris from 'ephemeris';
 // Import our robust wrapper that works in both client and server environments
 
-export interface CityData {
+interface CityData {
   name: string;
   country: string;
   lat: number;
   lng: number;
+  timezone?: {
+    name: string;
+    offset: number;
+    isDst: boolean;
+  } | null;
+}
+
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  formattedAddress: string;
+  countryCode: string;
+  timezone: string;
+  utcOffset: number;
+}
+
+interface FallbackLocation {
+  lat: number;
+  lng: number;
+  formattedAddress: string;
+  countryCode: string;
+  timezoneName: string;
 }
 
 // Constants
@@ -25,6 +47,17 @@ const ZODIAC_SYMBOLS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', 
 let citiesCache: any[] | null = null;
 let timeZonesCache: Map<string, any> | null = null;
 let countriesCache: Map<string, string> | null = null;
+
+const fallbackLocationDatabase: FallbackLocation[] = [
+  {
+    lat: 40.7128,
+    lng: -74.0060,
+    formattedAddress: 'New York, United States',
+    countryCode: 'US',
+    timezoneName: 'America/New_York'
+  },
+  // Add more fallback locations as needed
+];
 
 // Helper function to load and parse the cities CSV file
 async function loadCitiesData(): Promise<any[]> {
@@ -382,120 +415,8 @@ function loadCountryData(): Map<string, string> {
   }
 }
 
-// Fallback database for common locations if CSV lookup fails
-const FALLBACK_LOCATIONS: Record<string, { 
-  latitude: number; 
-  longitude: number; 
-  formattedAddress: string;
-  countryCode: string;
-  timeZoneName?: string; // IANA Timezone name (e.g., 'America/New_York')
-}> = {
-  // North America - Major US cities
-  'new york': { 
-    latitude: 40.7128, 
-    longitude: -74.006, 
-    formattedAddress: 'New York, NY, USA',
-    countryCode: 'US',
-    timeZoneName: 'America/New_York'
-  },
-  'los angeles': { 
-    latitude: 34.0522, 
-    longitude: -118.2437, 
-    formattedAddress: 'Los Angeles, CA, USA',
-    countryCode: 'US',
-    timeZoneName: 'America/Los_Angeles'
-  },
-  'chicago': { 
-    latitude: 41.8781, 
-    longitude: -87.6298, 
-    formattedAddress: 'Chicago, IL, USA',
-    countryCode: 'US',
-    timeZoneName: 'America/Chicago'
-  },
-  'miami': { 
-    latitude: 25.7617, 
-    longitude: -80.1918, 
-    formattedAddress: 'Miami, FL, USA',
-    countryCode: 'US',
-    timeZoneName: 'America/New_York'
-  },
-  
-  // Europe
-  'london': { 
-    latitude: 51.5074, 
-    longitude: -0.1278, 
-    formattedAddress: 'London, UK',
-    countryCode: 'GB',
-    timeZoneName: 'Europe/London'
-  },
-  'paris': { 
-    latitude: 48.8566, 
-    longitude: 2.3522, 
-    formattedAddress: 'Paris, France',
-    countryCode: 'FR',
-    timeZoneName: 'Europe/Paris'
-  },
-  'berlin': { 
-    latitude: 52.5200, 
-    longitude: 13.4050, 
-    formattedAddress: 'Berlin, Germany',
-    countryCode: 'DE',
-    timeZoneName: 'Europe/Berlin'
-  },
-  'rome': { 
-    latitude: 41.9028, 
-    longitude: 12.4964, 
-    formattedAddress: 'Rome, Italy',
-    countryCode: 'IT',
-    timeZoneName: 'Europe/Rome'
-  },
-  
-  // Asia
-  'tokyo': { 
-    latitude: 35.6762, 
-    longitude: 139.6503, 
-    formattedAddress: 'Tokyo, Japan',
-    countryCode: 'JP',
-    timeZoneName: 'Asia/Tokyo'
-  },
-  'beijing': { 
-    latitude: 39.9042, 
-    longitude: 116.4074, 
-    formattedAddress: 'Beijing, China',
-    countryCode: 'CN',
-    timeZoneName: 'Asia/Shanghai'
-  },
-  'delhi': { 
-    latitude: 28.7041, 
-    longitude: 77.1025, 
-    formattedAddress: 'Delhi, India',
-    countryCode: 'IN',
-    timeZoneName: 'Asia/Kolkata'
-  },
-  
-  // Australia and Oceania
-  'sydney': { 
-    latitude: -33.8688, 
-    longitude: 151.2093, 
-    formattedAddress: 'Sydney, Australia',
-    countryCode: 'AU',
-    timeZoneName: 'Australia/Sydney'
-  },
-  'melbourne': { 
-    latitude: -37.8136, 
-    longitude: 144.9631, 
-    formattedAddress: 'Melbourne, Australia',
-    countryCode: 'AU',
-    timeZoneName: 'Australia/Melbourne'
-  },
-  'auckland': { 
-    latitude: -36.8509, 
-    longitude: 174.7645, 
-    formattedAddress: 'Auckland, New Zealand',
-    countryCode: 'NZ',
-    timeZoneName: 'Pacific/Auckland'
-  }
-};
+// Import the queryCityAndTimezone function from actions.ts
+import { queryCityAndTimezone } from '../actions';
 
 // Function to find the timezone for a location
 function findTimeZone(latitude: number, longitude: number, countryCode: string): { 
@@ -600,38 +521,6 @@ function findTimeZone(latitude: number, longitude: number, countryCode: string):
   }
 }
 
-interface LocationData {
-  latitude: number;
-  longitude: number;
-  formattedAddress: string;
-  countryCode: string;
-  timezone: string;
-  utcOffset: number;
-}
-
-interface FallbackLocation {
-  latitude: number;
-  longitude: number;
-  formattedAddress: string;
-  countryCode: string;
-  timezoneName: string;
-}
-
-const fallbackLocationDatabase: FallbackLocation[] = [
-  // Add your fallback locations here
-  {
-    latitude: 40.7128,
-    longitude: -74.0060,
-    formattedAddress: 'New York, United States',
-    countryCode: 'US',
-    timezoneName: 'America/New_York'
-  },
-  // Add more fallback locations as needed
-];
-
-// Import the queryCityAndTimezone function from actions.ts
-import { queryCityAndTimezone } from '../actions';
-
 export async function geocodeLocation(locationInput: string): Promise<LocationData | null> {
   try {
     // First try to find the location in our database
@@ -654,12 +543,12 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
     if (cities.length > 0) {
       const city = cities[0];
       return {
-        latitude: city.latitude,
-        longitude: city.longitude,
+        latitude: city.lat,
+        longitude: city.lng,
         formattedAddress: `${city.name}, ${city.country}`,
         countryCode: city.country,
-        timezone: city.timezone || 'UTC',
-        utcOffset: 0 // We'll calculate this based on the timezone
+        timezone: city.timezone?.name || 'UTC',
+        utcOffset: city.timezone?.offset || 0
       };
     }
 
@@ -670,8 +559,8 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
 
     if (fallbackLocation) {
       return {
-        latitude: fallbackLocation.latitude,
-        longitude: fallbackLocation.longitude,
+        latitude: fallbackLocation.lat,
+        longitude: fallbackLocation.lng,
         formattedAddress: fallbackLocation.formattedAddress,
         countryCode: fallbackLocation.countryCode,
         timezone: fallbackLocation.timezoneName || 'UTC',
@@ -1085,7 +974,14 @@ function createDefaultChart() {
 
 export async function getCities(locationInput: string): Promise<CityData[]> {
   try {
-    // Get city data from CSV
+    // First try to get cities from the API
+    const response = await fetch(`/api/cities?q=${encodeURIComponent(locationInput)}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.cities;
+    }
+
+    // If API fails, fall back to CSV data
     const cities = await loadCitiesData();
     const searchTerms = locationInput.toLowerCase().trim().split(',').map(part => part.trim());
     const cityName = searchTerms[0]; // First part is assumed to be the city name
@@ -1105,7 +1001,7 @@ export async function getCities(locationInput: string): Promise<CityData[]> {
       country: city.country,
       lat: parseFloat(city.lat),
       lng: parseFloat(city.lng),
-      timezone: city.timezone || 'UTC'
+      timezone: null // CSV data doesn't include timezone info
     }));
   } catch (error) {
     console.error('Error in getCities:', error);
@@ -1123,20 +1019,6 @@ export async function loadCityData(): Promise<CityData[]> {
     return await response.json();
   } catch (error) {
     console.error('Error loading city data:', error);
-    return [];
-  }
-}
-
-// Get cities based on search query
-export async function getCities(query: string): Promise<CityData[]> {
-  try {
-    const response = await fetch(`/api/cities?q=${encodeURIComponent(query)}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch cities');
-    }
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching cities:', error);
     return [];
   }
 }
