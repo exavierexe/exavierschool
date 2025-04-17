@@ -11,6 +11,7 @@ export interface CityData {
   latitude: number;
   longitude: number;
   timezone: string;
+  admin_name?: string; // Add admin_name field
 }
 
 // Constants
@@ -666,8 +667,8 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         timezone: dbResult.timezone?.name || 'UTC',
         utcOffset: dbResult.timezone?.offset || 0,
         city: dbResult.city.name,
-        state: '', // Not available in current database
-        province: '', // Not available in current database
+        state: dbResult.city.admin_name || '', // Use admin_name as state/province
+        province: dbResult.city.admin_name || '', // Use admin_name as state/province
         country: dbResult.city.country
       };
     }
@@ -684,8 +685,8 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         timezone: city.timezone || 'UTC',
         utcOffset: 0, // We'll calculate this based on the timezone
         city: city.name,
-        state: '', // Not available in current database
-        province: '', // Not available in current database
+        state: city.admin_name || '', // Use admin_name as state/province
+        province: city.admin_name || '', // Use admin_name as state/province
         country: city.country
       };
     }
@@ -704,8 +705,8 @@ export async function geocodeLocation(locationInput: string): Promise<LocationDa
         timezone: fallbackLocation.timezoneName || 'UTC',
         utcOffset: 0,
         city: fallbackLocation.formattedAddress.split(',')[0].trim(),
-        state: '', // Not available in current database
-        province: '', // Not available in current database
+        state: '', // Not available in fallback database
+        province: '', // Not available in fallback database
         country: fallbackLocation.countryCode
       };
     }
@@ -1167,7 +1168,8 @@ export async function getCities(locationInput: string): Promise<CityData[]> {
       country: city.country,
       latitude: parseFloat(city.lat),
       longitude: parseFloat(city.lng),
-      timezone: city.timezone || 'UTC'
+      timezone: city.timezone || 'UTC',
+      admin_name: city.admin_name
     }));
   } catch (error) {
     console.error('Error in getCities:', error);

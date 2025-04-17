@@ -1599,7 +1599,8 @@ export async function queryCityAndTimezone(cityName: string, countryCode?: strin
         name: city.city_ascii,
         country: city.country,
         latitude: city.lat,
-        longitude: city.lng
+        longitude: city.lng,
+        admin_name: city.admin_name
       },
       timezone: timezone ? {
         name: timezone.zoneName,
