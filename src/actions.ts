@@ -1544,10 +1544,20 @@ export async function queryCityAndTimezone(cityName: string, countryCode?: strin
     // Find the timezone
     const timezone = await prisma.timeZone.findFirst({
       where: {
-        zoneName: {
-          contains: city.city_ascii,
-          mode: 'insensitive'
-        }
+        OR: [
+          {
+            zoneName: {
+              contains: city.city_ascii,
+              mode: 'insensitive'
+            }
+          },
+          {
+            zoneName: {
+              contains: `America/${city.city_ascii}`,
+              mode: 'insensitive'
+            }
+          }
+        ]
       }
     });
 
