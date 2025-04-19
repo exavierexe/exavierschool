@@ -717,7 +717,7 @@ export const querySwissEph = async (params: {
      // Add location information to the output
      const timezoneInfoText = geocodedLocation.timezone ? 
        `Time Zone: ${geocodedLocation.timezone}` :
-       `Time Zone: ${timeZoneInfo.name}`;
+       `Time Zone: ${timeZoneInfo.zoneName}`;
        
      const locationInfo = `
  Date (Local): ${date}
@@ -731,7 +731,7 @@ export const querySwissEph = async (params: {
  - City: ${geocodedLocation.city || 'Unknown'}
  - State/Province: ${geocodedLocation.state || geocodedLocation.province || 'Unknown'}
  - Country: ${geocodedLocation.country || 'Unknown'}
- - Time Zone: ${timeZoneInfo.name}
+ - Time Zone: ${timeZoneInfo.zoneName}
  - UTC Offset: ${tzSign}${formattedHours}:${formattedMinutes}
  
  ---- EPHEMERIS OUTPUT ----
