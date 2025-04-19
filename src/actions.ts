@@ -1547,13 +1547,13 @@ export async function queryCityAndTimezone(cityName: string, countryCode?: strin
         OR: [
           {
             zoneName: {
-              contains: city.city_ascii,
+              contains: city.city_ascii.replace(/\s+/g, '_'),
               mode: 'insensitive'
             }
           },
           {
             zoneName: {
-              contains: `America/${city.city_ascii}`,
+              contains: `America/${city.city_ascii.replace(/\s+/g, '_')}`,
               mode: 'insensitive'
             }
           }
