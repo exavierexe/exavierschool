@@ -875,192 +875,37 @@ export async function determineTimeZone(longitude: number, latitude: number): Pr
   totalOffsetMinutes: number;
 }> {
   try {
-    // First, try to find the closest city
-    console.log(`Looking up timezone for coordinates: ${latitude}, ${longitude}`);
+    // Use tz-lookup to get the timezone name
+    const tzlookup = require("tz-lookup");
+    const zoneName = tzlookup(latitude, longitude);
     
-    // Import the geocodeLocation function to use it for reverse geocoding
-    const { geocodeLocation } = await import('./lib/ephemeris');
-    
-    // Instead of loading city data from the file system, which doesn't work in serverless,
-    // we'll use a simple longitude-based calculation which is more compatible with serverless
-    const cities: City[] = [];
-    
-    // Find the closest city
-    let closestCity = null;
-    let minDistance = Number.MAX_VALUE;
-    
-    for (const city of cities) {
-      const cityLat = parseFloat(city.lat);
-      const cityLng = parseFloat(city.lng);
-      const distance = Math.sqrt(
-        Math.pow(cityLat - latitude, 2) + 
-        Math.pow(cityLng - longitude, 2)
-      );
-      
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestCity = city;
+    // Look up the timezone in our database
+    const timezone = await prisma.timeZone.findFirst({
+      where: {
+        zoneName: zoneName
       }
-    }
-    
-    // If we found a city, use it to look up the time zone
-    if (closestCity) {
-      console.log(`Found closest city: ${closestCity.city}, ${closestCity.country} (${closestCity.iso2})`);
-      
-      // Instead of loading timezone data from files, we'll use a simple calculation based on longitude
-      // This is compatible with serverless environments
-      
-      // Calculate the timezone offset based on longitude
-      // Each 15 degrees corresponds to 1 hour time difference
-      const approxOffsetHours = Math.round(longitude / 15);
-      const utcOffset = approxOffsetHours * 3600; // Convert to seconds
-      
-      // Create a descriptive timezone name based on the offset
-      const tzSignC = approxOffsetHours >= 0 ? '+' : '-';
-      const absHours = Math.abs(approxOffsetHours);
-      const zoneName = `UTC${tzSignC}${absHours}`;
-      
-      // US special case handling
-      let countryName = "Unknown";
-      let effectiveOffset = utcOffset;
-      let effectiveZoneName = zoneName;
-      
-      if (closestCity && closestCity.iso2) {
-        countryName = closestCity.country || closestCity.iso2;
-        
-        // Special case for US timezones
-        if (closestCity.iso2.toUpperCase() === 'US') {
-          if (longitude < -170) {
-            // Aleutian Islands
-            effectiveZoneName = 'America/Adak';
-            effectiveOffset = -10 * 3600;
-          } else if (longitude < -140) {
-            // Alaska 
-            effectiveZoneName = 'America/Anchorage';
-            effectiveOffset = -9 * 3600;
-          } else if (longitude < -115) {
-            // Pacific Time
-            effectiveZoneName = 'America/Los_Angeles';
-            effectiveOffset = -8 * 3600;
-          } else if (longitude < -100) {
-            // Mountain Time
-            effectiveZoneName = 'America/Denver';
-            effectiveOffset = -7 * 3600;
-          } else if (longitude < -85) {
-            // Central Time
-            effectiveZoneName = 'America/Chicago';
-            effectiveOffset = -6 * 3600;
-          } else {
-            // Eastern Time
-            effectiveZoneName = 'America/New_York';
-            effectiveOffset = -5 * 3600;
-          }
-          
-          // Hawaii special case
-          if (longitude < -150 && latitude < 25 && latitude > 15) {
-            effectiveZoneName = 'Pacific/Honolulu';
-            effectiveOffset = -10 * 3600;
-          }
-          
-          countryName = "United States";
-        }
-      }
-      
-      // Create the timezone object
-      const timezone = {
-        zoneName: effectiveZoneName,
-        utcOffset: effectiveOffset,
-        countryName: countryName
-      };
-      console.log(`Found timezone: ${timezone.zoneName}, offset: ${timezone.utcOffset} seconds`);
-      
-      // Convert seconds to hours and minutes
-      const totalMinutes = timezone.utcOffset / 60;
-      const offsetHours = Math.floor(Math.abs(totalMinutes) / 60) * (totalMinutes >= 0 ? 1 : -1);
-      const offsetMinutes = Math.abs(totalMinutes) % 60;
-      
-      // Format timezone name
-      const tzSignD = totalMinutes >= 0 ? '+' : '-';
-      const formattedHours = Math.abs(offsetHours).toString().padStart(2, '0');
-      const formattedMinutes = Math.abs(offsetMinutes).toString().padStart(2, '0');
-      const timeZoneName = `${timezone.zoneName} (UTC${tzSignD}${formattedHours}:${formattedMinutes})`;
-      
+    });
+
+    if (!timezone) {
+      console.error(`Timezone not found in database: ${zoneName}`);
       return {
-        name: timeZoneName,
-        offsetHours,
-        offsetMinutes: offsetMinutes * (totalMinutes >= 0 ? 1 : -1),
-        totalOffsetMinutes: totalMinutes
+        name: zoneName,
+        offsetHours: 0,
+        offsetMinutes: 0,
+        totalOffsetMinutes: 0
       };
     }
-    
-    // If we couldn't find a city, fall back to the simplified longitude-based approach
-    console.log('No city found, falling back to longitude-based timezone calculation');
-    
-    // Normalize longitude to be between -180 and 180
-    let normLongitude = longitude;
-    while (normLongitude > 180) normLongitude -= 360;
-    while (normLongitude < -180) normLongitude += 360;
-    
-    // Find the time zone based on longitude
-    const timeZone = TIME_ZONE_BOUNDARIES.find(
-      zone => normLongitude >= zone.min && normLongitude < zone.max
-    );
-    
-    let timeZoneName = 'UTC+00:00';
-    let offsetHours = 0;
-    let offsetMinutes = 0;
-    
-    if (timeZone) {
-      timeZoneName = timeZone.name;
-      
-      // Parse the offset hours and minutes from the name
-      const match = timeZone.name.match(/UTC([+-])(\d+):(\d+)/);
-      if (match) {
-        const sign = match[1] === '+' ? 1 : -1;
-        offsetHours = sign * parseInt(match[2]);
-        offsetMinutes = sign * parseInt(match[3]);
-      }
-    } else {
-      // Fallback calculation based on longitude
-      // Each 15 degrees of longitude represents approximately 1 hour
-      offsetHours = Math.round(normLongitude / 15);
-      timeZoneName = `UTC${offsetHours >= 0 ? '+' : ''}${offsetHours}:00`;
-    }
-    
-    // Calculate total offset in minutes for easier calculations
-    const totalOffsetMinutes = (offsetHours * 60) + offsetMinutes;
-    
-    // Special cases based on latitude and longitude for politically defined time zones
-    // This is a simplified approach - real time zones follow political boundaries
-    
-    // Examples of special cases (add more as needed):
-    
-    // Spain (mostly should be UTC+00:00 by longitude but uses UTC+01:00)
-    if (normLongitude > -10 && normLongitude < 3 && latitude > 35 && latitude < 44) {
-      timeZoneName = 'UTC+01:00';
-      offsetHours = 1;
-      offsetMinutes = 0;
-    }
-    
-    // China (spans multiple time zones but uses UTC+08:00 for the entire country)
-    if (normLongitude > 73 && normLongitude < 135 && latitude > 18 && latitude < 54) {
-      timeZoneName = 'UTC+08:00';
-      offsetHours = 8;
-      offsetMinutes = 0;
-    }
-    
-    // India (uses UTC+05:30)
-    if (normLongitude > 68 && normLongitude < 97 && latitude > 6 && latitude < 36) {
-      timeZoneName = 'UTC+05:30';
-      offsetHours = 5;
-      offsetMinutes = 30;
-    }
-    
+
+    // Calculate hours and minutes from the UTC offset in seconds
+    const totalMinutes = timezone.utcOffset / 60;
+    const offsetHours = Math.floor(Math.abs(totalMinutes) / 60) * (totalMinutes >= 0 ? 1 : -1);
+    const offsetMinutes = Math.abs(totalMinutes) % 60;
+
     return {
-      name: timeZoneName,
+      name: timezone.zoneName,
       offsetHours,
-      offsetMinutes,
-      totalOffsetMinutes: (offsetHours * 60) + offsetMinutes
+      offsetMinutes: offsetMinutes * (totalMinutes >= 0 ? 1 : -1),
+      totalOffsetMinutes: totalMinutes
     };
   } catch (error) {
     console.error('Error determining time zone:', error);
