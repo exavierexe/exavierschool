@@ -400,7 +400,16 @@ export const querySwissEph = async (params: {
     if (!location || location.trim() === '') {
       return {
         output: '',
-        error: 'Please enter a location (city name).'
+        error: 'Please enter a location (city name). For better accuracy, include state or country (e.g., "New York, NY" or "Paris, France").'
+      };
+    }
+    
+    // Validate location format
+    const locationParts = location.split(',').map(part => part.trim());
+    if (locationParts.length > 2) {
+      return {
+        output: '',
+        error: 'Please enter location in the format "City, State" or "City, Country" (e.g., "New York, NY" or "Paris, France").'
       };
     }
     
@@ -1363,7 +1372,7 @@ function parseSwissEphOutput(output: string, location: any) {
 }
 
 // Function to query city and timezone information from the database
-export async function queryCityAndTimezone(cityName: string, countryCode?: string) {
+export async function queryCityAndTimezone(cityName: string, stateOrCountry?: string) {
   try {
     // First try to find the city in our database
     const city = await prisma.city.findFirst({
@@ -1372,8 +1381,12 @@ export async function queryCityAndTimezone(cityName: string, countryCode?: strin
           contains: cityName,
           mode: 'insensitive'
         },
-        ...(countryCode && {
-          iso2: countryCode
+        ...(stateOrCountry && {
+          OR: [
+            { admin_name: { contains: stateOrCountry, mode: 'insensitive' } },
+            { country: { contains: stateOrCountry, mode: 'insensitive' } },
+            { iso2: stateOrCountry.toUpperCase() }
+          ]
         })
       }
     });

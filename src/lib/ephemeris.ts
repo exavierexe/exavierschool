@@ -652,69 +652,60 @@ const US_STATE_ABBREVIATIONS: Record<string, string> = {
   'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
 };
 
-export async function geocodeLocation(locationInput: string): Promise<LocationData | null> {
+export async function geocodeLocation(location: string): Promise<LocationData> {
   try {
-    // First try to find the location in our database
-    const [cityName, countryCode] = locationInput.split(',').map(part => part.trim());
-    const dbResult = await queryCityAndTimezone(cityName, countryCode);
-
+    // Split the location string into parts
+    const parts = location.split(',').map(part => part.trim());
+    const cityName = parts[0];
+    const stateOrCountry = parts[1] || '';
+    
+    // First try to find the city in our database with optional state/country
+    const dbResult = await queryCityAndTimezone(cityName, stateOrCountry);
+    
     if (dbResult) {
       return {
         latitude: dbResult.city.latitude,
         longitude: dbResult.city.longitude,
         formattedAddress: `${dbResult.city.name}, ${dbResult.city.country}`,
-        countryCode: dbResult.city.country,
-        timezone: dbResult.timezone?.name || 'UTC',
-        utcOffset: dbResult.timezone?.offset || 0,
+        timezone: dbResult.timezone?.name || null,
         city: dbResult.city.name,
-        state: dbResult.city.admin_name || '', // Use admin_name as state/province
-        province: dbResult.city.admin_name || '', // Use admin_name as state/province
+        state: dbResult.city.admin_name || '',
+        province: dbResult.city.admin_name || '',
         country: dbResult.city.country
       };
     }
-
+    
     // If not found in database, try the CSV file
-    const cities = await getCities(locationInput);
-    if (cities.length > 0) {
-      const city = cities[0];
+    const csvResult = await findCityInCSV(cityName, stateOrCountry);
+    
+    if (csvResult) {
       return {
-        latitude: city.latitude,
-        longitude: city.longitude,
-        formattedAddress: `${city.name}, ${city.country}`,
-        countryCode: city.country,
-        timezone: city.timezone || 'UTC',
-        utcOffset: 0, // We'll calculate this based on the timezone
-        city: city.name,
-        state: city.admin_name || '', // Use admin_name as state/province
-        province: city.admin_name || '', // Use admin_name as state/province
-        country: city.country
+        latitude: csvResult.latitude,
+        longitude: csvResult.longitude,
+        formattedAddress: `${csvResult.name}, ${csvResult.country}`,
+        timezone: null,
+        city: csvResult.name,
+        state: csvResult.admin_name || '',
+        province: csvResult.admin_name || '',
+        country: csvResult.country
       };
     }
-
-    // If still not found, try the fallback database
-    const fallbackLocation = fallbackLocationDatabase.find(loc => 
-      loc.formattedAddress.toLowerCase().includes(locationInput.toLowerCase())
-    );
-
-    if (fallbackLocation) {
-      return {
-        latitude: fallbackLocation.latitude,
-        longitude: fallbackLocation.longitude,
-        formattedAddress: fallbackLocation.formattedAddress,
-        countryCode: fallbackLocation.countryCode,
-        timezone: fallbackLocation.timezoneName || 'UTC',
-        utcOffset: 0,
-        city: fallbackLocation.formattedAddress.split(',')[0].trim(),
-        state: '', // Not available in fallback database
-        province: '', // Not available in fallback database
-        country: fallbackLocation.countryCode
-      };
-    }
-
-    return null;
+    
+    // If still not found, use the fallback location
+    const fallbackLocation = await getFallbackLocation(location);
+    return {
+      latitude: fallbackLocation.latitude,
+      longitude: fallbackLocation.longitude,
+      formattedAddress: fallbackLocation.formattedAddress,
+      timezone: fallbackLocation.timezone,
+      city: fallbackLocation.formattedAddress.split(',')[0] || '',
+      state: '',
+      province: '',
+      country: fallbackLocation.countryCode || ''
+    };
   } catch (error) {
     console.error('Error in geocodeLocation:', error);
-    return null;
+    throw error;
   }
 }
 
