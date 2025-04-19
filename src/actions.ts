@@ -722,17 +722,14 @@ export const querySwissEph = async (params: {
      const locationInfo = `
  Date (Local): ${date}
  Time (Local): ${time}
- Location: ${geocodedLocation.formattedAddress}
- ${timezoneInfoText}
+ City: ${geocodedLocation.city || 'Unknown'}
+ State/Province: ${geocodedLocation.state || geocodedLocation.province || 'Unknown'}
+ Country: ${geocodedLocation.country || 'Unknown'}
+ UTC Offset: ${tzSign}${formattedHours}:${formattedMinutes}
  Latitude: ${geocodedLocation.latitude.toFixed(4)}° ${geocodedLocation.latitude >= 0 ? 'N' : 'S'}
  Longitude: ${geocodedLocation.longitude.toFixed(4)}° ${geocodedLocation.longitude >= 0 ? 'E' : 'W'}
  
- Location Details:
- - City: ${geocodedLocation.city || 'Unknown'}
- - State/Province: ${geocodedLocation.state || geocodedLocation.province || 'Unknown'}
- - Country: ${geocodedLocation.country || 'Unknown'}
- - Time Zone: ${timeZoneInfo.name}
- - UTC Offset: ${tzSign}${formattedHours}:${formattedMinutes}
+
  
  ---- EPHEMERIS OUTPUT ----
 ${formattedOutput}`;
